@@ -7,7 +7,8 @@
 - `skills/b2b-seo-site-architecture/SKILL.md`：执行入口与边界。
 - `agents/openai.yaml`：显示名称和默认调用提示。
 - `references/`：接收、研究、命名/层级/属性、规模分析、输出与设计交接规范。
-- `scripts/`：四个Python脚本及其内部依赖。library.py与cluster.py来自维护者现有SEO工具，随包携带，不要求用户安装另一Skill。两个脚本内部的工具版本分别是1.1.0和1.1.1，与Skill发行版本不同。
+- `scripts/`：四个可执行Python工具与delivery.py交付辅助模块。library.py与cluster.py来自维护者现有SEO工具并保留本包的兼容修复，随包携带，不要求用户安装另一Skill。两个脚本内部版本分别是1.1.1和1.1.2，与Skill发行版本不同。
+- `examples/`：明确合成的最小有效计划和关键词CSV，用于理解字段与运行基本结构检查，不含客户资料或完整网站建议。
 - `assets/architecture-view.html`：生成HTML使用的本地模板，无外部前端脚本依赖。
 - 根README、版本记录、文件摘要、本说明和明确标注为MOCK的截图。
 

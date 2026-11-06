@@ -25,6 +25,7 @@
 !/skills/b2b-seo-site-architecture/scripts/library.py
 !/skills/b2b-seo-site-architecture/scripts/cluster.py
 !/skills/b2b-seo-site-architecture/scripts/keyword_evidence.py
+!/skills/b2b-seo-site-architecture/scripts/delivery.py
 !/skills/b2b-seo-site-architecture/references/
 /skills/b2b-seo-site-architecture/references/*
 !/skills/b2b-seo-site-architecture/references/data-collection-guide.md
@@ -34,3 +35,8 @@
 !/skills/b2b-seo-site-architecture/references/page-research-and-design.md
 !/skills/b2b-seo-site-architecture/references/language-hierarchy-and-attributes.md
 !/skills/b2b-seo-site-architecture/references/large-keyword-workflow.md
+!/skills/b2b-seo-site-architecture/references/minimal-example.md
+!/skills/b2b-seo-site-architecture/examples/
+/skills/b2b-seo-site-architecture/examples/*
+!/skills/b2b-seo-site-architecture/examples/minimal-plan.json
+!/skills/b2b-seo-site-architecture/examples/keywords.csv

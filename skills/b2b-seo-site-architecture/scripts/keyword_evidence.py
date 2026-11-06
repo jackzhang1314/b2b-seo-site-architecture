@@ -14,10 +14,11 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from cluster import TOKEN, keywords
-from library import normalize, number, obj, output_dir, read_table, stable_id, text_map, write_json, write_table
+from library import check_source_id, normalize, number, obj, output_dir, read_table, stable_id, text_map, write_json, write_table
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 CONTEXT = ("provider", "competitor_id", "market", "language", "observed_at", "url")
+GROUP_CONTEXT = (*CONTEXT, "evidence_class")
 RANK_FIELDS = ["source_ref", "source_id", *CONTEXT, "evidence_class", "keyword_id", "keyword_original",
                "position", "position_raw", "estimated_traffic", "traffic_state", "traffic_raw", "issues"]
 PAGE_FIELDS = ["source_ref", "source_id", *CONTEXT, "evidence_class", "page_estimated_traffic", "traffic_state", "traffic_raw"]
@@ -56,9 +57,9 @@ def url_summary(rankings: list[dict[str, str]], pages: list[dict[str, str]]) -> 
     page_metrics: dict[tuple[str, ...], list[dict[str, str]]] = defaultdict(list)
     for row in rankings:
         if "invalid_url" not in row["issues"]:
-            ranked[tuple(row[k] for k in CONTEXT)].append(row)
+            ranked[tuple(row[k] for k in GROUP_CONTEXT)].append(row)
     for row in pages:
-        page_metrics[tuple(row[k] for k in CONTEXT)].append(row)
+        page_metrics[tuple(row[k] for k in GROUP_CONTEXT)].append(row)
     summaries: list[dict[str, str]] = []
     for key in sorted(ranked.keys() | page_metrics.keys()):
         rows, metrics = ranked.get(key, []), page_metrics.get(key, [])
@@ -77,7 +78,7 @@ def url_summary(rankings: list[dict[str, str]], pages: list[dict[str, str]]) -> 
             traffic_state = "partial"
         subtotal = sum((Decimal(v) for v, _ in values if v), Decimal(0))
         page_value, page_state = consistent_metric([r["page_estimated_traffic"] for r in metrics])
-        summaries.append({**dict(zip(CONTEXT, key, strict=True)),
+        summaries.append({**dict(zip(GROUP_CONTEXT, key, strict=True)),
             "url_group_id": "url_" + stable_id(*key), "source_ids": json.dumps(sorted({r["source_id"] for r in rows + metrics})),
             "evidence_classes": json.dumps(sorted({r["evidence_class"] for r in rows + metrics})),
             "ranking_rows_received": str(len(rows)), "unknown_keyword_rows": str(sum(not r["keyword_id"] for r in rows)),
@@ -111,8 +112,7 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
             for item in sources:
                 source = obj(item)
                 sid = str(source.get("source_id", ""))
-                require(bool(re.fullmatch(r"[A-Za-z0-9_-]+", sid)) and sid not in seen_sources, "Unique source_id required")
-                seen_sources.add(sid)
+                check_source_id(sid, seen_sources)
                 kind = str(source.get("kind", ""))
                 require(kind in {"rankings", "pages"}, "Source kind must be rankings or pages")
                 context = {k: str(source.get(k, "")).strip() for k in CONTEXT if k != "url"}
@@ -121,7 +121,9 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
                 domain = str(source.get("domain", "")).strip().lower()
                 require(bool(domain) and "/" not in domain, "Competitor domain required")
                 evidence = str(source.get("evidence_class", ""))
-                require(evidence in {"provider_export", "user_provided", "historical_sample", "simulation"}, "Explicit evidence class required")
+                require(evidence in {"provider_export", "user_provided", "historical_sample", "simulation"},
+                        f"Source {sid}: invalid evidence_class {evidence!r}; allowed: "
+                        "provider_export, user_provided, historical_sample, simulation")
                 columns = text_map(source.get("columns"))
                 allowed = {"keyword", "position", "url", "estimated_traffic"} if kind == "rankings" else {"url", "page_estimated_traffic"}
                 required = {"keyword", "position", "url"} if kind == "rankings" else {"url", "page_estimated_traffic"}
@@ -173,7 +175,7 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
         write_table(stage / "ranking-observations.csv", rank_rows, RANK_FIELDS)
         write_table(stage / "page-traffic-observations.csv", page_rows, PAGE_FIELDS)
         write_table(stage / "competitor-url-summary.csv", summaries, list(summaries[0]) if summaries else [*CONTEXT])
-        members = [{"url_group_id": "url_" + stable_id(*(r[k] for k in CONTEXT)), "keyword_id": r["keyword_id"],
+        members = [{"url_group_id": "url_" + stable_id(*(r[k] for k in GROUP_CONTEXT)), "keyword_id": r["keyword_id"],
                     "keyword_original": r["keyword_original"], "source_ref": r["source_ref"], "position": r["position"]}
                    for r in rank_rows if "invalid_url" not in r["issues"]]
         write_table(stage / "keyword-url-memberships.csv", members,

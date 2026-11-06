@@ -1,0 +1,271 @@
+{
+  "schema_version": "0.4.0",
+  "project": {
+    "name": "MOCK Minimal Structure",
+    "site_url": "https://demo.example",
+    "market": "US",
+    "language": "en",
+    "mode": "simulation",
+    "scope_note": "结构示例：1页1模板，不代表完整网站规划；企业资料、参数与研究均待补。",
+    "exclude_blog": true
+  },
+  "sources": [
+    {
+      "id": "S_DEMO",
+      "kind": "simulation",
+      "label": "Synthetic structure fixture",
+      "reference": "examples/minimal-plan.json",
+      "scope": "No real company facts, metrics or browser observations"
+    }
+  ],
+  "offerings": [
+    {
+      "id": "O_MINI",
+      "label": "Mini Excavator Supply",
+      "status": "supported",
+      "evidence_ids": [
+        "S_DEMO"
+      ]
+    }
+  ],
+  "competitors": [],
+  "groups": [
+    {
+      "id": "G_SUPPLY",
+      "label": "Supply Inquiry",
+      "buyer_task": "确认供货范围",
+      "rationale": "仅用于演示主词与章节词区别"
+    }
+  ],
+  "templates": [
+    {
+      "id": "T_HOME",
+      "name": "Home Template",
+      "name_zh": "首页模板",
+      "mode": "bespoke",
+      "allowed_page_types": [
+        "home"
+      ],
+      "modules": [
+        "Product Supply Overview"
+      ],
+      "fields": [
+        "Main Heading"
+      ],
+      "optional_modules": [],
+      "variants": [
+        "default"
+      ],
+      "representative_page_ids": [
+        "P_HOME"
+      ],
+      "rationale": "一个页面的最小结构演示，不是通用工厂网站模板",
+      "design_order": 1,
+      "design_spec": {
+        "modules": [
+          {
+            "id": "hero",
+            "name": "Product Supply Overview",
+            "name_zh": "产品供应概览",
+            "purpose": "Explain the supported product range",
+            "content": [
+              "Use client-approved product scope and one relevant image"
+            ],
+            "desktop_layout": "Two columns: copy and product image",
+            "mobile_layout": "Heading, copy, image, then inquiry action",
+            "interaction": "Request product information",
+            "required": true,
+            "condition": "Always included",
+            "variants": [],
+            "field_ids": [
+              "headline",
+              "site_contact"
+            ],
+            "study_ids": [],
+            "decision": "Synthetic structure example; no competitor research claimed",
+            "evidence_ids": [
+              "S_DEMO"
+            ]
+          }
+        ],
+        "fields": [
+          {
+            "id": "headline",
+            "label": "Main Heading",
+            "label_zh": "页面主标题",
+            "kind": "text",
+            "scope": "page",
+            "required": true,
+            "format": "English text; no unverified claims",
+            "source": "Client must provide actual wording",
+            "missing_policy": "Show a labeled placeholder in design; block publication until verified",
+            "value_status": "missing",
+            "evidence_ids": [
+              "S_DEMO"
+            ]
+          }
+        ],
+        "rejected_patterns": [
+          "未经证明的工厂与产能承诺"
+        ],
+        "research_gaps": [
+          "竞品页面尚未实访"
+        ]
+      }
+    }
+  ],
+  "pages": [
+    {
+      "id": "P_HOME",
+      "name": "Home",
+      "name_en": "Home",
+      "name_zh": "首页",
+      "parent_id": "",
+      "path": "/",
+      "page_type": "home",
+      "template_id": "T_HOME",
+      "variant": "default",
+      "state": "proposed",
+      "offering_ids": [
+        "O_MINI"
+      ],
+      "primary_keyword_id": "kw_demo_main",
+      "objective": "说明供应范围并引导用户获取已核产品信息",
+      "sections": [
+        "Product Supply Overview"
+      ],
+      "sections_zh": [
+        "产品供应概览"
+      ],
+      "unique_content": [
+        "客户自己的产品范围，取得资料后填写"
+      ],
+      "cta": "Request Product Information",
+      "cta_zh": "索取产品信息",
+      "priority": "P1",
+      "fact_gaps": [
+        "实际产品目录与联系资料待补"
+      ],
+      "evidence_ids": [
+        "S_DEMO"
+      ],
+      "rationale": "仅示范一页结构；实际项目应独立决定页面",
+      "design_brief": {
+        "audience": "B2B equipment buyers",
+        "primary_message": "Explore the Product Range",
+        "primary_message_zh": "了解产品范围",
+        "copy_direction": "英文文案以客户已核供货范围为准",
+        "image_direction": "客户授权产品图片，缺失时保留占位",
+        "emphasis": "说明业务范围，避免未经证明的制造商主张",
+        "module_notes": [
+          {
+            "module_id": "hero",
+            "content_note": "附件需求仅为本页章节词示例，不据此建新页"
+          }
+        ],
+        "evidence_ids": [
+          "S_DEMO"
+        ]
+      }
+    }
+  ],
+  "navigation": [
+    {
+      "id": "N_HOME",
+      "label": "Home",
+      "label_zh": "首页",
+      "kind": "page",
+      "location": "header",
+      "parent_id": "",
+      "page_id": "P_HOME",
+      "order": 0,
+      "rationale": "最小示例入口"
+    }
+  ],
+  "decisions": [
+    {
+      "keyword_id": "kw_demo_main",
+      "group_id": "G_SUPPLY",
+      "disposition": "page",
+      "page_id": "P_HOME",
+      "reason": "页面级需求示例",
+      "evidence_ids": [
+        "S_DEMO"
+      ]
+    },
+    {
+      "keyword_id": "kw_demo_section",
+      "group_id": "G_SUPPLY",
+      "disposition": "section",
+      "page_id": "P_HOME",
+      "reason": "同一供货任务的附件说明，仅作章节，不设为主词",
+      "evidence_ids": [
+        "S_DEMO"
+      ]
+    }
+  ],
+  "ranking_observations": [],
+  "competitor_page_reviews": [],
+  "research_targets": [],
+  "site_design": {
+    "visual_direction": "Clear B2B product information",
+    "typography": "Readable English headings and body copy",
+    "spacing": "Separate modules with consistent whitespace",
+    "image_style": "Authorized product images only",
+    "header": "Brand placeholder and Home entry",
+    "footer": "Verified contact details when available",
+    "mobile_navigation": "Single clear Home link",
+    "fields": [
+      {
+        "id": "site_contact",
+        "label": "Contact Details",
+        "label_zh": "联系信息",
+        "kind": "text",
+        "scope": "site",
+        "required": true,
+        "format": "English text; no unverified claims",
+        "source": "Client must provide actual wording",
+        "missing_policy": "Show a labeled placeholder in design; block publication until verified",
+        "value_status": "missing",
+        "evidence_ids": [
+          "S_DEMO"
+        ]
+      }
+    ],
+    "evidence_ids": [
+      "S_DEMO"
+    ]
+  },
+  "factory_profile": {
+    "business_role": "unknown",
+    "identity_statement": "实际业务角色待核；不声明拥有工厂",
+    "evidence_ids": [
+      "S_DEMO"
+    ],
+    "proof_items": [
+      {
+        "id": "F_ROLE",
+        "topic": "identity",
+        "claim": "Actual supplier role to be confirmed",
+        "status": "pending",
+        "scope": "Own company",
+        "presentation": "Labeled design placeholder only",
+        "missing_action": "Obtain company profile and supplier role",
+        "evidence_ids": [
+          "S_DEMO"
+        ]
+      }
+    ],
+    "page_proof_map": [
+      {
+        "page_id": "P_HOME",
+        "proof_ids": [
+          "F_ROLE"
+        ],
+        "presentation": "简介区域说明实际供货角色",
+        "reason": "首页信任内容需有企业资料"
+      }
+    ]
+  },
+  "product_attributes": []
+}

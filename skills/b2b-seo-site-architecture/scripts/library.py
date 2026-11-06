@@ -20,7 +20,9 @@ from typing import Iterator
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
+EVIDENCE_CLASSES = {"provider_data", "provider_export", "first_party", "user_provided", "direct_observation",
+                    "browser_observation", "historical_sample", "model_inference", "simulation"}
 METRICS = ("volume", "difficulty", "cpc", "ads_competition", "clicks", "impressions")
 KEY_FIELDS = ["keyword_id", "keyword_original", "keyword_normalized", "market", "language",
               "discovery_types", "source_count", "review_state", "business_fit", "fit_reason"]
@@ -88,6 +90,15 @@ def normalize(value: str) -> str:
 
 def stable_id(*parts: str) -> str:
     return hashlib.sha256(json.dumps(parts, ensure_ascii=False).encode()).hexdigest()[:24]
+
+
+def check_source_id(sid: str, seen: set[str]) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", sid):
+        raise ValueError(f"Invalid source_id {sid!r}: use ASCII letters, digits, underscore or hyphen only; "
+                         "dots and spaces are not allowed (example: seed_us_01)")
+    if sid in seen:
+        raise ValueError(f"Duplicate source_id {sid!r}: each source in this manifest needs a different ID")
+    seen.add(sid)
 
 
 def read_table(path: Path, encoding: str = "auto", delimiter: str = "auto") -> Iterator[tuple[int, dict[str, str]]]:
@@ -196,9 +207,7 @@ def build(manifest_path: Path, destination: Path) -> None:
             for source_value in sources:
                 source = obj(source_value)
                 sid = str(source.get("source_id", ""))
-                if not re.fullmatch(r"[A-Za-z0-9_-]+", sid) or sid in source_ids:
-                    raise ValueError("source_id must be unique ASCII letters/digits/_/-")
-                source_ids.add(sid)
+                check_source_id(sid, source_ids)
                 path = manifest_path.parent / str(source["path"])
                 columns = text_map(source.get("columns"))
                 context = text_map(source.get("context", {}))
@@ -209,9 +218,11 @@ def build(manifest_path: Path, destination: Path) -> None:
                 kind = str(source.get("discovery_type", ""))
                 evidence = str(source.get("evidence_class", ""))
                 if kind not in {"observed", "user_supplied", "generated_candidate"}:
-                    raise ValueError("Explicit discovery_type required")
-                if evidence not in {"provider_data", "first_party", "user_provided", "direct_observation", "model_inference"}:
-                    raise ValueError("Explicit evidence_class required")
+                    raise ValueError(f"Source {sid}: invalid discovery_type {kind!r}; allowed: "
+                                     "observed, user_supplied, generated_candidate")
+                if evidence not in EVIDENCE_CLASSES:
+                    raise ValueError(f"Source {sid}: invalid evidence_class {evidence!r}; allowed: "
+                                     + ", ".join(sorted(EVIDENCE_CLASSES)))
                 if kind == "generated_candidate" and any(k in columns for k in METRICS):
                     raise ValueError("Generated candidates cannot carry imported metrics")
                 decimal = str(source.get("decimal_separator", "."))

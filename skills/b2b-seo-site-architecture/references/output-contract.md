@@ -22,10 +22,16 @@
 ## 生成与检查
 
 ```sh
-python3 SKILL_DIR/scripts/architecture.py --plan /绝对路径/architecture-plan.json --keywords /绝对路径/industry-keywords.csv --out /绝对路径/新成果目录
+python3 SKILL_DIR/scripts/architecture.py --plan /绝对路径/architecture-plan.json --keywords /绝对路径/industry-keywords.csv --analysis-dir /绝对路径/本轮runs目录 --out /绝对路径/新成果目录
 ```
 
 Python 3.11+、仅标准库。所有输出写新目录。脚本不访问网页、不调用模型、不替代页面或模板决策。
+
+`--analysis-dir`指向本轮选定的工具输出集合，例如`runs/library`、`runs/frequency`、`runs/ton`、`runs/semantic-prepare`、`runs/semantic`、`runs/urls`。其直接子目录需有`run.json`，也可直接传一个工具输出目录。词库必须与`--keywords`字节一致，其他分析须有同一输入哈希；每轮只放一份build和一份rankings，不混入历史运行、截图或任意客户文件。已审阅子集的分析另留研究记录，不和完整词库运行混装。
+
+生成器自动复制完整分析到`analysis/`，写`analysis-manifest.json`与`analysis-index.md`；存在rankings分析时再把全量URL汇总与整页观察导出到成果根目录，并在HTML“竞品排名页”展示最多500组。仅有整页流量而没有词明细的URL也保留。交付整个成果目录或它的ZIP，不只发送HTML单文件。没有附带目录时兼容旧用法，但明确标记`analysis_delivery.status=not_attached`，不能称完整分析交付；有排名分析时还应核对`rankings_attached=true`及URL/整页记录数量。
+
+首次编排可运行[最小有效示例](minimal-example.md)，包含完整设计字段与常见报错的对应位置。发行版本0.4.1沿用0.4.0计划结构，不需迁移已有计划。
 
 ## JSON结构
 
@@ -80,6 +86,8 @@ application详情归application_hub集合页；主导航中的详情通过可点
 
 ## 竞品URL汇总口径
 
+`competitor-url-summary.csv`来自本轮完整排名分析，按工具、竞品、市场、语言、日期、原URL、证据性质聚合。`received_keyword_traffic`只代表收到范围的逐词估算；`page_estimated_traffic`是独立整页估算，两个字段永不相加。`keyword_traffic_status/page_traffic_status`分别标完整、缺失、部分缺失或冲突。只有页面流量的URL保留，词数量为0不表示流量为0。`page-traffic-observations.csv`保留所有有效整页记录；异常URL及原始行在analysis内的问题表与raw-records保留。两个根目录CSV也带XLSX阅读版。
+
 `ranked-url-summary.csv`按竞品、原始URL、市场、排名数据日期、source_id分组。Top30计数只用位置1–30，按keyword_id去重；超范围/缺排名的原关系仍保留。同一组的逐词流量完整且没有冲突时才给出范围内估算合计；否则合计为空，并报告覆盖数和missing/partial/conflicting状态。重复关系不会重复加流量，不跨来源/日期相加。只汇总收到的排名表范围，不冒充整页或全站全部流量。
 
 关联的页面观察来自competitor_page_reviews，显示观察状态、页型、菜单位置、模块、说明及来源ID。没有观察的URL标not_visited；模拟观察继续明确标识，不能升级成真实页面证据。
@@ -108,6 +116,8 @@ application详情归application_hub集合页；主导航中的详情通过可点
 | keyword-decisions.csv | 每个词的主组、目标或暂缓/排除理由 |
 | ranking-observations.csv | 保留关键词—竞品—排名URL关系，不推定真实排名 |
 | ranked-url-summary.csv | 按URL汇总排名词/需求与可得估算流量，并关联实访页型、菜单和模块 |
+| competitor-url-summary.csv / page-traffic-observations.csv | 附带rankings分析时自动交付全量URL与独立整页流量，保留无逐词明细的URL；附XLSX阅读版 |
+| analysis/、analysis-index.md、analysis-manifest.json | 自动附带本轮选定的完整分析、入口链接、文件数量和逐文件哈希；未附带时明确标记 |
 | mindmap.md | 缩进树，供导入支持Markdown大纲的思维导图工具；不保证所有XMind版本原生导入 |
 | design-handoff.md | 核心页与文章数分别统计，模板/变体和样板、逐核心页及文章代表页要求、资料缺口与WordPress Builder接续阶段 |
 | validation.json | 输入摘要、覆盖、计数及限制；通过只表示结构一致 |

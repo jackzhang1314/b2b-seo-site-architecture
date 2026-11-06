@@ -18,7 +18,9 @@ from typing import Iterator
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
 
-VERSION = "1.1.1"
+from library import check_source_id
+
+VERSION = "1.1.2"
 # Keep decimal numbers, units, hyphenated model codes and diameter/size separators.
 TOKEN = re.compile(r"[^\W_]+(?:[.\-/'×][^\W_]+)*", re.UNICODE)
 
@@ -298,9 +300,7 @@ def provider(path: Path, manifest_path: Path, out: Path) -> None:
             for entry in sources:
                 source = obj(entry)
                 sid = str(source.get("source_id", ""))
-                if not re.fullmatch(r"[A-Za-z0-9_-]+", sid) or sid in source_ids:
-                    raise ValueError("Unique source_id required")
-                source_ids.add(sid)
+                check_source_id(sid, source_ids)
                 vendor = str(source.get("provider", "unverified"))
                 verified = source.get("source_verified", False)
                 hierarchy = source.get("hierarchy_explicit", False)

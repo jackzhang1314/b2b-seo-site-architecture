@@ -24,6 +24,8 @@ Codex根据实际字段创建`sources.json`，每个文件一个来源。例如�
 
 示例上下文不是默认事实；国家/语言未知就保持未知。`columns`支持keyword、market、language及volume/difficulty/cpc/ads_competition/clicks/impressions，其他原列完整保留到`raw-records.jsonl`。排名表也作为词源导入，把种子表漏掉的词纳入；URL、Position、逐词Traffic和页面流量由下面的独立证据流程读取，不把Traffic映射为Volume。声明为模型候选时用`generated_candidate`且不能带假指标。
 
+`source_id`在同一清单中唯一，只用ASCII字母、数字、下划线和连字符（如`seed_us_01`），不含点号或空格。教学MOCK统一设`evidence_class=simulation`，`discovery_type=user_supplied`，并保留实际provider标签如`MOCK`和原始Evidence列；后面的排名来源、页面流量来源及计划的`source.kind`也保持`simulation`，不用改成user_provided。真实工具导出可统一用`provider_export`；词库导入继续兼容旧值provider_data/first_party/direct_observation，但这些旧值不能直接冒充排名来源枚举。关键词的来源性质完整保存在lineage、source-register和指标观察表。
+
 目录内有`keywords.csv`、`lineage.csv`、`keyword-observations.csv`、`raw-records.jsonl`、`source-register.json`和`run.json`。同名XLSX用于人工阅读，单元格写成文本；CSV供程序继续处理。原始空值、N/A、真实0、格式错误分开保存。数字小数/千位口径不明先核对，可显式设置`decimal_separator/thousands_separator`；K、M、百分比不擅自猜换算。
 
 ## 2. 全库统计，逐个维度下钻
@@ -70,7 +72,7 @@ python3 SKILL_DIR/scripts/keyword_evidence.py rankings --keywords runs/library-0
 - `keyword-url-memberships.csv`：完整词—URL组对应，可作为语义审阅的页面证据。
 - `input-issues.csv`：缺/异常URL、未知词、缺/异常排名或指标；所有原行保留在raw-records.jsonl。未知词先回到词库合并，不静默丢弃。
 
-不同来源的重复词不重复加流量；同一快照有冲突则标conflicting，缺失则留空而非0。summary中的关键词计数与最佳位置只基于已关联到词库的词，unknown_keyword_rows单独报告。原URL不因为跳转而被覆盖；最终访问URL在浏览观察记录中另记。
+不同来源的重复词不重复加流量；同一快照有冲突则标conflicting，缺失则留空而非0。模拟与真实证据即使provider和日期相同也分组，不相加。summary中的关键词计数与最佳位置只基于已关联到词库的词，unknown_keyword_rows单独报告。原URL不因为跳转而被覆盖；最终访问URL在浏览观察记录中另记。
 
 URL聚合只说明竞争对手用一个页面承接了哪些词，不直接证明本站应该同页。不能凭`/blog/`路径自动宣称已经识别或访问文章页：按业务相关性、排名词和页面流量安排研究，再用浏览器确认商业页/文章页的任务、模块与模板。商业页用于核心架构，文章页用于独立内容计划，两者都保留来源。
 
@@ -104,3 +106,5 @@ Ahrefs有按Terms查修饰词和Parent Topic的不同视图；Semrush有分组�
 ## 交付与规模边界
 
 完整记录留在CSV/XLSX/JSON，HTML按需查看核心架构和摘要；明确预览行数与全量数量，不能让HTML一次铺几万行。新输出目录保留旧运行，来源登记含哈希和方法。分别报告接收/统计完成、语义已审阅/待核、竞品实访、架构已定/暂定，不能用运行通过替代真实研究。规模测试只说明该版本在所测环境的数据处理能力，不证明真实语义质量、排名或询盘效果。
+
+最终生成时用`architecture.py --analysis-dir runs`附带本轮分析；runs只放本轮选定且来自同一完整词库的输出，不能指向混有历史版本的总目录。原始完整分析随成果复制，整页流量和仅有流量的URL进入HTML及根目录导出；逐词Top30规划摘要仍独立保留，具体文件和检查项见[输出契约](output-contract.md)。

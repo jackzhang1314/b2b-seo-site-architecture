@@ -15,7 +15,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 
+from delivery import collect_analysis
+
+# The patch release retains the 0.4.0 plan schema.
 VERSION = "0.4.0"
+TOOL_VERSION = "0.4.1"
 DESIGN_VERSIONS = {"0.3.0", VERSION}
 SUPPORTED_VERSIONS = {"0.1.0", "0.2.0", *DESIGN_VERSIONS}
 BLOG_TYPES = {"blog", "blog_category", "article"}
@@ -276,7 +280,9 @@ def validate_design_details(plan: Row, pages: dict[str, Row], templates: dict[st
             require(isinstance(module.get("required"), bool), "Explicit module requirement needed")
             require(set(strings(module, "variants")) <= set(strings(template, "variants")), "Unknown module variant")
             field_ids = strings(module, "field_ids", required=True)
-            require(set(field_ids) <= (local_fields.keys() | shared_fields.keys()), "Unknown module field reference")
+            require(set(field_ids) <= (local_fields.keys() | shared_fields.keys()),
+                    f"templates[{template['id']}].design_spec.modules[{module['id']}].field_ids: "
+                    "Unknown module field reference; IDs must exist in this template or site_design.fields")
             used_fields.update(field_ids)
             ids = strings(module, "study_ids")
             require(set(ids) <= reviews.keys(), "Unknown module study reference")
@@ -490,7 +496,10 @@ def validate(plan: Row, keywords: dict[str, dict[str, str]]) -> Row:
         primary = text(page, "primary_keyword_id", empty=True)
         if primary:
             require(primary in assigned and assigned[primary].get("page_id") == pid
-                    and assigned[primary].get("disposition") == "page", "Page primary keyword is not a page-level assignment")
+                    and assigned[primary].get("disposition") == "page",
+                    f"pages[{pid}].primary_keyword_id {primary!r}: Page primary keyword is not a page-level assignment; "
+                    "use a decisions row with disposition=page and the same page_id, or leave primary_keyword_id empty. "
+                    "Do not promote a section/filter keyword merely to satisfy this check.")
 
     rankings = index(records(plan, "ranking_observations"))
     ranking_counts: Counter[str] = Counter()
@@ -952,7 +961,7 @@ def viewer_payload(payload: Row, keywords: dict[str, dict[str, str]]) -> Row:
     scope: list[Row] = []
     needed_ids: set[str] = set()
     for key, filename in (("decisions", "keyword-decisions.csv"), ("ranking_observations", "ranking-observations.csv"),
-                          ("ranked_urls", "ranked-url-summary.csv")):
+                          ("ranked_urls", "ranked-url-summary.csv"), ("url_evidence", "competitor-url-summary.csv")):
         rows = records(payload, key)
         shown = rows[:500]
         result[key] = shown
@@ -998,12 +1007,15 @@ def viewer_payload(payload: Row, keywords: dict[str, dict[str, str]]) -> Row:
     return result
 
 
-def compile_architecture(plan_path: Path, keywords_path: Path, out: Path) -> Row:
+def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analysis_dir: Path | None = None) -> Row:
     require(not out.exists(), "Choose a new output directory; existing outputs are preserved")
     raw: object = json.loads(plan_path.read_text(encoding="utf-8-sig"))
     plan = obj(raw)
     keywords = read_keywords(keywords_path)
     validation = validate(plan, keywords)
+    delivery = collect_analysis(analysis_dir, keywords_path, set(index(records(plan, "competitors"))))
+    validation["tool_version"] = TOOL_VERSION
+    validation["analysis_delivery"] = delivery.summary()
     pages = index(records(plan, "pages"))
     templates = index(records(plan, "templates"))
     decisions = records(plan, "decisions")
@@ -1055,6 +1067,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path) -> Row
     article_rows = [p for p in page_rows if p.get("page_type") == "article"]
     ranked_urls = summarize_ranked_urls(plan, keywords)
     payload = {**plan, "pages": core_rows, "articles": article_rows, "ranked_urls": ranked_urls,
+               "url_evidence": [dict(r) for r in delivery.urls],
                "templates": template_rows, "decisions": decision_rows, "validation": validation}
     encoded = json.dumps(viewer_payload(payload, keywords), ensure_ascii=False).replace("<", "\\u003c").replace(
         "\u2028", "\\u2028").replace("\u2029", "\\u2029")
@@ -1062,6 +1075,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path) -> Row
     with TemporaryDirectory(prefix=".architecture-", dir=out.parent) as temporary:
         stage = Path(temporary) / "result"
         stage.mkdir()
+        delivery.write(stage)
         dump(stage / "architecture-plan.json", plan)
         dump(stage / "validation.json", validation)
         for filename, rows in (("pages", core_rows), ("content-plan", article_rows), ("templates", template_rows),
@@ -1110,6 +1124,9 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path) -> Row
                    "本资料未生成视觉稿、客户WordPress模板或已发布文章。", "",
                    "入口：index.html、mindmap.md、pages.csv、navigation.csv、templates.csv；"
                    "文章选题单独见content-plan.csv，竞品页面依据见ranked-url-summary.csv。", "",
+                   "完整分析的附件状态见validation.json中的analysis_delivery；文件索引见analysis-index.md。"
+                   "附带排名分析时，competitor-url-summary.csv含独立整页流量及无词明细的URL，"
+                   "page-traffic-observations.csv保留整页原记录；两类流量不能相加。", "",
                    "按实际模板及变体选代表页设计，产品或文章增加时复用合适模板。"
                    "结合客户现有项目确认内容模型、原生字段与ACF字段的职责；博客正文保留正常文章编辑入口。"
                    "没有项目事实时不预填工程路径、模板文件名、CPT或字段key。", "",
@@ -1147,9 +1164,11 @@ def main() -> int:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--keywords", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--analysis-dir", type=Path,
+                        help="Selected current analysis runs to copy with the final HTML, including page traffic")
     args = parser.parse_args()
     try:
-        result = compile_architecture(args.plan, args.keywords, args.out)
+        result = compile_architecture(args.plan, args.keywords, args.out, args.analysis_dir)
     except (OSError, ValueError, KeyError) as exc:
         print(json.dumps({"status": "failed", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1
