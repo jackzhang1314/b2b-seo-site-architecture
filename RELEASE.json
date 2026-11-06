@@ -1,0 +1,71 @@
+{
+  "name": "b2b-seo-site-architecture",
+  "version": "0.4.0",
+  "tag": "v0.4.0",
+  "prepared_at": "2026-11-07T03:19:07.784147+08:00",
+  "repository": "https://github.com/jackzhang1314/b2b-seo-site-architecture",
+  "skill_path": "skills/b2b-seo-site-architecture",
+  "runtime_file_count": 14,
+  "repository_file_count_including_manifest": 20,
+  "python_minimum": "3.11",
+  "python_dependencies": "standard library plus bundled library.py and cluster.py",
+  "bundled_tool_versions": {
+    "library.py": "1.1.0",
+    "cluster.py": "1.1.1",
+    "architecture.py": "0.4.0",
+    "keyword_evidence.py": "0.4.0"
+  },
+  "schema_compatibility": [
+    "0.1.0",
+    "0.2.0",
+    "0.3.0",
+    "0.4.0"
+  ],
+  "validation": {
+    "local_regressions": {
+      "passed": 97,
+      "architecture_attributes_evidence": 73,
+      "bundled_keyword_tools": 24,
+      "scope": "Release runtime with maintainer fixtures; fixtures are not included in this repository"
+    },
+    "strict_mypy": "passed for runtime and related tests",
+    "ruff": "passed for runtime and related tests",
+    "desktop_mobile_html": "checked at 1440 and 390 CSS pixels",
+    "synthetic_scale": {
+      "unique_keywords": 50000,
+      "source_rows": 160000,
+      "ranking_rows": 100000,
+      "page_metric_rows": 400,
+      "semantic_batches": 250,
+      "semantic_judgments_performed": 0
+    },
+    "ci": "No GitHub Actions workflow included; local checks are not remote CI",
+    "limits": [
+      "Synthetic validation is not real competitor research or SEO outcome evidence",
+      "No independent new-user agent session or clean-machine dependency installation was tested",
+      "Browser controls and SEO data are provided by the user environment"
+    ]
+  },
+  "files_sha256": {
+    ".gitignore": "5aee4f33c4fc78649215247aedca7416a87f9ac7b1d5e3585f88780ca4fd32fb",
+    "CHANGELOG.md": "208c4b9dc19d385cd2dbf80e48fe73e592e8541f03842229e96922d81bb50508",
+    "README.md": "f6a59a66a224b7c70daeb41d0f5c33640bd56eddfae8bb37485a9a5336b55146",
+    "docs/PUBLISHING.md": "7e8268eff619ef22ac0810d36493a6fc0c1ec7362a98e34ba37bb7d62e02e38a",
+    "docs/architecture-example.png": "1bd7ad71a43c929b5845ba034e094f4accff59a24e11d4805dec9d62d15cbeb6",
+    "skills/b2b-seo-site-architecture/SKILL.md": "e43375f72c887c819ebf0974f4619bd99113c53b007a8b6a11e5657d582efd4d",
+    "skills/b2b-seo-site-architecture/agents/openai.yaml": "9853d84462dc19e4db309eeb10738916e649159725c5db6c79176e8528cd7f75",
+    "skills/b2b-seo-site-architecture/assets/architecture-view.html": "eae629d7acd42251d1e9ccf1e0e4dbcc0af939e4f6c22108bb351630eb10a241",
+    "skills/b2b-seo-site-architecture/references/data-collection-guide.md": "f57b0f45b71f6b99ec79edad9f42ce466231110656bf2e88587bfe61f56ddf9c",
+    "skills/b2b-seo-site-architecture/references/intake-and-research.md": "6d4095f3dda5faf8c4edd28803140b2dffbd46aa8786d53c52d3caf06a6bb0df",
+    "skills/b2b-seo-site-architecture/references/language-hierarchy-and-attributes.md": "73c15eb5d7427669ace60ac8dd73ad1dc1507e30fcc218841d24c6ed9459a1dc",
+    "skills/b2b-seo-site-architecture/references/large-keyword-workflow.md": "4ba6c649d01490c9e5a0f8e7f66688ddfe8c00ee710fcc7b5028d13bcb18cb2f",
+    "skills/b2b-seo-site-architecture/references/output-contract.md": "917c8f0aadc2810dedee977537c3574fd3a508076fb854b1c36a13bc3bd37488",
+    "skills/b2b-seo-site-architecture/references/page-and-template-decisions.md": "3f184758dea787ae14014b641eb3155cc6e5e6a8f55ca61931ebee89b3b87afc",
+    "skills/b2b-seo-site-architecture/references/page-research-and-design.md": "b525dc3b5339fb7a05ce9ddf1b9170fc177fd9009f979228756ff0567ae88ba5",
+    "skills/b2b-seo-site-architecture/scripts/architecture.py": "9d825a105cb59bbd2080ad825244fd4a75defd803bb866e1fb073d2335d68ee5",
+    "skills/b2b-seo-site-architecture/scripts/cluster.py": "1303b2ea8a21528c910445bf0741012c3029a3b65efe4083f943cb2281c36ad6",
+    "skills/b2b-seo-site-architecture/scripts/keyword_evidence.py": "dc9e2f3fdb94cc624387b5db67bcf10992d4ad9c59339c6bcc93fe377b180ef9",
+    "skills/b2b-seo-site-architecture/scripts/library.py": "ef8fd8cd9502e0445db8477c7cfffa74ea6c8c5e84d79ababf4bb50aa30acdd0"
+  },
+  "manifest_note": "This manifest excludes its own digest; verify repository contents at the immutable version tag."
+}
