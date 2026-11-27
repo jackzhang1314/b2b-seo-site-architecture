@@ -8,6 +8,7 @@ import hashlib
 from itertools import chain
 import json
 import re
+import shutil
 import sys
 import unicodedata
 from collections import Counter
@@ -20,7 +21,7 @@ from typing import Iterator
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
 
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 EVIDENCE_CLASSES = {"provider_data", "provider_export", "first_party", "user_provided", "direct_observation",
                     "browser_observation", "historical_sample", "model_inference", "simulation"}
 METRICS = ("volume", "difficulty", "cpc", "ads_competition", "clicks", "impressions")
@@ -189,6 +190,15 @@ def number(raw: str, decimal: str, thousands: str) -> tuple[str, str]:
         return "", "invalid"
 
 
+def snapshot_table(path: Path, stage: Path, source_id: str) -> tuple[Path, str]:
+    """Read and hash the same bytes that will be delivered as the received original."""
+    target = stage / "originals" / source_id / path.name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(path, target)
+    with target.open("rb") as stream:
+        return target, hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 def build(manifest_path: Path, destination: Path) -> None:
     manifest = obj(json.loads(manifest_path.read_text(encoding="utf-8-sig")))
     sources = items(manifest.get("sources"))
@@ -212,7 +222,7 @@ def build(manifest_path: Path, destination: Path) -> None:
                 columns = text_map(source.get("columns"))
                 context = text_map(source.get("context", {}))
                 metric_meta = obj(source.get("metric_meta", {}))
-                allowed = set(METRICS) | {"keyword", "market", "language"}
+                allowed = set(METRICS) | {"keyword", "market", "language", "observed_at", "provider", "volume_group"}
                 if "keyword" not in columns or not set(columns) <= allowed:
                     raise ValueError(f"Invalid column mapping for {sid}; permitted: {sorted(allowed)}")
                 kind = str(source.get("discovery_type", ""))
@@ -230,7 +240,8 @@ def build(manifest_path: Path, destination: Path) -> None:
                 if decimal not in {".", ","} or thousands not in {"", ",", ".", " "} or decimal == thousands:
                     raise ValueError("Unsupported/ambiguous number separators")
                 row_count = 0
-                for record, raw in read_table(path, str(source.get("encoding", "auto")), str(source.get("delimiter", "auto"))):
+                received, sha = snapshot_table(path, stage, sid)
+                for record, raw in read_table(received, str(source.get("encoding", "auto")), str(source.get("delimiter", "auto"))):
                     row_count += 1
                     ref = f"{sid}:record:{record}"
                     raw_stream.write(json.dumps({"source_ref": ref, "fields": raw}, ensure_ascii=False) + "\n")
@@ -248,8 +259,11 @@ def build(manifest_path: Path, destination: Path) -> None:
                     action = "merged" if kid in keywords else "retained"
                     if not normalized:
                         action = "excluded_empty"
+                    observed_at = raw[columns["observed_at"]] if "observed_at" in columns else str(source.get("observed_at", ""))
+                    provider = raw[columns["provider"]] if "provider" in columns else str(source.get("provider", "unknown"))
                     lineage.append({"source_ref": ref, "keyword_id": kid, "keyword_original": original,
-                                    "discovery_type": kind, "evidence_class": evidence, "action": action})
+                                    "discovery_type": kind, "evidence_class": evidence, "action": action,
+                                    "market": market, "language": language, "provider": provider, "observed_at": observed_at})
                     if not normalized:
                         continue
                     if kid not in keywords:
@@ -269,19 +283,21 @@ def build(manifest_path: Path, destination: Path) -> None:
                         observations.append({"observation_id": "ob_" + stable_id(ref, metric),
                             "keyword_id": kid, "metric": metric, "value": value, "value_state": state,
                             "raw_value": raw_value, "field_origin": columns[metric], "source_ref": ref,
-                            "provider": str(source.get("provider", "unknown")), "report": str(source.get("report", "")),
+                            "provider": provider, "report": str(source.get("report", "")),
                             "evidence_class": evidence, "market": market, "language": language,
-                            "observed_at": str(source.get("observed_at", "")), "unit": meta.get("unit", ""),
+                            "observed_at": observed_at,
+                            "volume_group": raw[columns["volume_group"]] if metric == "volume" and "volume_group" in columns else "", "unit": meta.get("unit", ""),
                             "scope": meta.get("scope", ""), "metric_type": meta.get("metric_type", "")})
-                register.append({**source, "resolved_path": str(path.resolve()), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                                 "records": row_count, "source_ref_rule": "1-based data record excluding header, not physical line"})
+                register.append({**source, "resolved_path": str(path.resolve()), "sha256": sha,
+                                 "received_file": received.relative_to(stage).as_posix(), "records": row_count, "source_ref_rule": "1-based data record excluding header, not physical line"})
         for kid, keyword in keywords.items():
             keyword["discovery_types"] = json.dumps(sorted(discoveries[kid]))
             keyword["source_count"] = str(len(source_sets[kid]))
         write_table(stage / "keywords.csv", sorted(keywords.values(), key=lambda x: x["keyword_id"]), KEY_FIELDS)
         write_table(stage / "keyword-observations.csv", observations, ["observation_id", "keyword_id", "metric", "value", "value_state",
-            "raw_value", "field_origin", "source_ref", "provider", "report", "evidence_class", "market", "language", "observed_at", "unit", "scope", "metric_type"])
-        write_table(stage / "lineage.csv", lineage, ["source_ref", "keyword_id", "keyword_original", "discovery_type", "evidence_class", "action"])
+            "raw_value", "field_origin", "source_ref", "provider", "report", "evidence_class", "market", "language", "observed_at", "unit", "scope", "metric_type", "volume_group"])
+        write_table(stage / "lineage.csv", lineage, ["source_ref", "keyword_id", "keyword_original", "discovery_type", "evidence_class", "action",
+                                                  "market", "language", "provider", "observed_at"])
         write_json(stage / "source-register.json", register)
         write_json(stage / "run.json", {"version": VERSION, "command": "build", "created_at": datetime.now(timezone.utc).isoformat(),
             "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(), "input_records": len(lineage),

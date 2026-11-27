@@ -14,14 +14,19 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from cluster import TOKEN, keywords
-from library import check_source_id, normalize, number, obj, output_dir, read_table, stable_id, text_map, write_json, write_table
+from library import check_source_id, normalize, number, obj, output_dir, read_table, snapshot_table, stable_id, text_map, write_json, write_table
 
-VERSION = "0.4.1"
+VERSION = "0.5.0"
 CONTEXT = ("provider", "competitor_id", "market", "language", "observed_at", "url")
 GROUP_CONTEXT = (*CONTEXT, "evidence_class")
 RANK_FIELDS = ["source_ref", "source_id", *CONTEXT, "evidence_class", "keyword_id", "keyword_original",
                "position", "position_raw", "estimated_traffic", "traffic_state", "traffic_raw", "issues"]
 PAGE_FIELDS = ["source_ref", "source_id", *CONTEXT, "evidence_class", "page_estimated_traffic", "traffic_state", "traffic_raw"]
+PRICE_COLUMNS = ("price", "price_type", "currency", "unit", "minimum_quantity", "configuration",
+                 "delivery_basis", "destination", "tax_freight", "valid_until")
+PRICE_FIELDS = ["source_ref", "source_id", *CONTEXT, "evidence_class", *PRICE_COLUMNS]
+ROW_CONTEXT = {"provider", "competitor_id", "domain", "market", "language", "observed_at"}
+
 
 
 def require(condition: bool, message: str) -> None:
@@ -104,6 +109,8 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
         raise ValueError("Expected source list")
     rank_rows: list[dict[str, str]] = []
     page_rows: list[dict[str, str]] = []
+    price_rows: list[dict[str, str]] = []
+    prices_mapped = False
     issues: list[dict[str, str]] = []
     register: list[dict[str, object]] = []
     seen_sources: set[str] = set()
@@ -114,26 +121,31 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
                 sid = str(source.get("source_id", ""))
                 check_source_id(sid, seen_sources)
                 kind = str(source.get("kind", ""))
-                require(kind in {"rankings", "pages"}, "Source kind must be rankings or pages")
-                context = {k: str(source.get(k, "")).strip() for k in CONTEXT if k != "url"}
-                context["market"], context["language"] = context["market"].upper(), context["language"].lower()
-                require(all(context.values()), "Explicit provider, competitor, market, language and snapshot required")
-                domain = str(source.get("domain", "")).strip().lower()
-                require(bool(domain) and "/" not in domain, "Competitor domain required")
+                require(kind in {"rankings", "pages", "prices"}, "Source kind must be rankings, pages or prices")
                 evidence = str(source.get("evidence_class", ""))
                 require(evidence in {"provider_export", "user_provided", "historical_sample", "simulation"},
                         f"Source {sid}: invalid evidence_class {evidence!r}; allowed: "
                         "provider_export, user_provided, historical_sample, simulation")
                 columns = text_map(source.get("columns"))
-                allowed = {"keyword", "position", "url", "estimated_traffic"} if kind == "rankings" else {"url", "page_estimated_traffic"}
-                required = {"keyword", "position", "url"} if kind == "rankings" else {"url", "page_estimated_traffic"}
-                require(required <= columns.keys() and columns.keys() <= allowed, "Invalid evidence column mapping; separate page and keyword traffic")
+                required_columns = {"rankings": {"keyword", "position", "url"}, "pages": {"url", "page_estimated_traffic"},
+                                    "prices": {"url", "price"}}[kind]
+                data_columns = required_columns | ({"estimated_traffic"} if kind == "rankings" else set(PRICE_COLUMNS))
+                require(required_columns <= columns.keys() <= data_columns | ROW_CONTEXT,
+                        "Invalid evidence column mapping; separate page and keyword traffic")
+                require(not (columns.keys() & set(PRICE_COLUMNS)) or "price" in columns, "Map the original offer price")
+                if "price" in columns:
+                    field = normalize(columns["price"]).replace("_", " ")
+                    require(not re.match(r"^(?:cpc|traffic cost|cost per click|paid traffic cost|每次点击费用|流量成本)(?:$|[ (])", field),
+                            f"{sid}: {columns['price']!r} is an advertising metric; map a product offer price")
+                prices_mapped |= "price" in columns
+                defaults = {k: str(source.get(k, "")).strip() for k in ROW_CONTEXT}
                 path = manifest_path.parent / str(source["path"])
                 decimal, thousands = str(source.get("decimal_separator", ".")), str(source.get("thousands_separator", ","))
                 require(decimal in {".", ","} and thousands in {"", ",", ".", " "} and decimal != thousands,
                         "Unsupported number separators")
                 count = 0
-                for record, raw in read_table(path, str(source.get("encoding", "auto")), str(source.get("delimiter", "auto"))):
+                received, sha = snapshot_table(path, stage, sid)
+                for record, raw in read_table(received, str(source.get("encoding", "auto")), str(source.get("delimiter", "auto"))):
                     count += 1
                     ref = f"{sid}:record:{record}"
                     raw_stream.write(json.dumps({"source_ref": ref, "fields": raw}, ensure_ascii=False) + "\n")
@@ -141,6 +153,11 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
                         issues.append({"source_ref": ref, "issue": "export_footer", "detail": raw["__export_footer__"]})
                         continue
                     require(set(columns.values()) <= raw.keys(), f"Missing mapped columns: {sid}")
+                    context = {k: raw[columns[k]].strip() if k in columns else v for k, v in defaults.items()}
+                    domain = context.pop("domain").lower()
+                    context["market"], context["language"] = context["market"].upper(), context["language"].lower()
+                    require(all(context.values()) and bool(domain) and "/" not in domain,
+                            f"{ref}: provider, competitor ID/domain, market, language and date are required")
                     url = raw[columns["url"]].strip()
                     row_issues: list[str] = []
                     if not valid_url(url, domain, evidence):
@@ -165,14 +182,21 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
                         rank_rows.append({**common, "keyword_id": kid, "keyword_original": word, "position": position,
                                           "position_raw": position_raw, "estimated_traffic": traffic,
                                           "issues": ";".join(row_issues)})
-                    elif "invalid_url" not in row_issues:
+                    elif kind == "pages" and "invalid_url" not in row_issues:
                         page_rows.append({**common, "page_estimated_traffic": traffic})
+                    if "price" in columns and "invalid_url" not in row_issues:
+                        price = {key: raw[columns[key]] if key in columns else "" for key in PRICE_COLUMNS}
+                        if price["price"].strip():
+                            price_rows.append({"source_ref": ref, "source_id": sid, **context, "url": url,
+                                               "evidence_class": evidence, **price})
                     for issue in row_issues:
                         issues.append({"source_ref": ref, "issue": issue, "detail": "Original row preserved in raw-records.jsonl"})
-                register.append({**source, "resolved_path": str(path.resolve()), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                                 "records": count})
+                register.append({**source, "resolved_path": str(path.resolve()), "sha256": sha,
+                                 "received_file": received.relative_to(stage).as_posix(), "records": count})
         summaries = url_summary(rank_rows, page_rows)
         write_table(stage / "ranking-observations.csv", rank_rows, RANK_FIELDS)
+        if prices_mapped:
+            write_table(stage / "price-observations.csv", price_rows, PRICE_FIELDS)
         write_table(stage / "page-traffic-observations.csv", page_rows, PAGE_FIELDS)
         write_table(stage / "competitor-url-summary.csv", summaries, list(summaries[0]) if summaries else [*CONTEXT])
         members = [{"url_group_id": "url_" + stable_id(*(r[k] for k in GROUP_CONTEXT)), "keyword_id": r["keyword_id"],
@@ -184,7 +208,7 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
         write_json(stage / "source-register.json", register)
         write_json(stage / "run.json", {"version": VERSION, "command": "rankings", "keywords": len(words),
             "input_records": sum(int(str(r["records"])) for r in register), "ranking_rows": len(rank_rows),
-            "page_metric_rows": len(page_rows), "url_snapshots": len(summaries), "issues": dict(Counter(r["issue"] for r in issues)),
+            "page_metric_rows": len(page_rows), "price_rows": len(price_rows), "url_snapshots": len(summaries), "issues": dict(Counter(r["issue"] for r in issues)),
             "keywords_sha256": hashlib.sha256(keywords_path.read_bytes()).hexdigest(),
             "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
             "limits": ["No external service queried; all received positions retained, with Top 30 as a separate count",

@@ -40,3 +40,9 @@
 /skills/b2b-seo-site-architecture/examples/*
 !/skills/b2b-seo-site-architecture/examples/minimal-plan.json
 !/skills/b2b-seo-site-architecture/examples/keywords.csv
+!/skills/b2b-seo-site-architecture/scripts/demand_metrics.py
+!/skills/b2b-seo-site-architecture/scripts/plan_records.py
+!/skills/b2b-seo-site-architecture/scripts/search_plan.py
+!/skills/b2b-seo-site-architecture/scripts/workbench_data.py
+!/skills/b2b-seo-site-architecture/assets/search-plan.html
+!/skills/b2b-seo-site-architecture/references/search-planning.md

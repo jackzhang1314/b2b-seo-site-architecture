@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "project": {
     "name": "MOCK Minimal Structure",
     "site_url": "https://demo.example",
@@ -160,12 +160,25 @@
         "module_notes": [
           {
             "module_id": "hero",
-            "content_note": "附件需求仅为本页章节词示例，不据此建新页"
+            "content_note": "附件需求仅为本页章节词示例，不据此建新页",
+            "buyer_question": "能供哪些小型挖掘机，哪些附件可以随主机询价？",
+            "required_facts": [
+              "已核产品与配套附件清单"
+            ]
           }
         ],
         "evidence_ids": [
           "S_DEMO"
         ]
+      },
+      "search_scope": {
+        "action": "new",
+        "approval": "proposed",
+        "boundary": "首页交代小挖供货范围，附件仅解释能否随主机配套。",
+        "adjacent_page_ids": [],
+        "priority_reason": "先让买家确认产品范围和询价入口。",
+        "peer_reviews": [],
+        "price_refs": []
       }
     }
   ],
@@ -191,7 +204,9 @@
       "reason": "页面级需求示例",
       "evidence_ids": [
         "S_DEMO"
-      ]
+      ],
+      "module_id": "hero",
+      "coverage": "full"
     },
     {
       "keyword_id": "kw_demo_section",
@@ -201,7 +216,10 @@
       "reason": "同一供货任务的附件说明，仅作章节，不设为主词",
       "evidence_ids": [
         "S_DEMO"
-      ]
+      ],
+      "module_id": "hero",
+      "coverage": "partial",
+      "remaining_need": "附件独立订货与适配型号待企业确认。"
     }
   ],
   "ranking_observations": [],
@@ -267,5 +285,18 @@
       }
     ]
   },
-  "product_attributes": []
+  "product_attributes": [],
+  "dimension_values": [
+    {
+      "id": "V_MINI",
+      "dimension": "Product family",
+      "value": "Mini Excavators",
+      "market": "US",
+      "language": "en",
+      "aliases": [
+        "mini excavator"
+      ],
+      "definition": "模拟业务中已经核过的小挖产品族。附件说法只安排在同页说明。"
+    }
+  ]
 }

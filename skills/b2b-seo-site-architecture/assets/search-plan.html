@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>网站架构工作台</title>
+<style>
+:root{color-scheme:light;--ink:#172f43;--muted:#4a6675;--petrol:#123f4a;--active:#1c6470;--green:#13705c;--pale:#e8f3f1;--line:#d4dfe2;--canvas:#f4f7f8;--paper:#fff;--mono:"IBM Plex Mono",ui-monospace,monospace}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--canvas);font:15px/1.55 "Source Sans 3","PingFang SC","Microsoft YaHei",system-ui,sans-serif}button,input,select{font:inherit}button,a,summary,select{touch-action:manipulation}a{color:var(--active);text-underline-offset:3px}button,select,input{max-width:100%;color:inherit;border:1px solid var(--line);border-radius:5px;background:white;padding:7px 11px}button,summary,select{cursor:pointer}button:hover,a:hover{color:var(--green)}button:focus-visible,summary:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #168b9b;outline-offset:2px}button:disabled{opacity:.45;cursor:default}[hidden]{display:none!important}
+.app{max-width:1920px;margin:auto;display:grid;grid-template-columns:214px minmax(0,1fr);min-height:100vh}.rail{position:sticky;top:0;height:100vh;overflow:auto;background:var(--petrol);color:#e7f5f3;padding:25px 15px;display:flex;flex-direction:column;gap:24px}.brand{display:flex;gap:11px;align-items:center;font-size:18px;font-weight:680;letter-spacing:.03em;color:white}.mark{width:28px;height:31px;position:relative;border-left:2px solid #74c3b5;margin-left:3px}.mark:before,.mark:after{content:"";position:absolute;left:-2px;top:5px;width:19px;height:7px;border:2px solid #9cdacd;border-radius:2px;background:var(--petrol)}.mark:after{top:19px;left:3px;width:14px}.rail nav{display:grid;gap:16px}.navgroup{display:grid;gap:2px}.navgroup>span,.rail footer{color:#afcacc;font-size:12px}.navgroup>span{padding:0 10px 3px}.navgroup button,.rail-link{display:block;border:0;text-align:left;color:#deeeed;background:transparent;padding:8px 11px;border-radius:5px}.navgroup button:hover,.rail-link:hover{background:#204e58;color:white}.navgroup button[aria-pressed=true]{background:#d6eeea;color:#123d41;font-weight:680;box-shadow:inset 3px 0 #54ab96}.rail-link{text-decoration:none;border:1px solid #517078}.rail footer{margin-top:auto}.rail-link{font-size:13px}.desk{min-width:0}.top{height:56px;padding:0 28px;background:var(--paper);display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}.top strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}.top small{margin-left:auto;white-space:nowrap;color:var(--muted)}.main{max-width:1600px;margin:auto;padding:24px 28px 48px}.head{display:flex;justify-content:space-between;gap:20px;align-items:end}.head h1{margin:2px 0;font-size:clamp(26px,2.8vw,39px);line-height:1.2;letter-spacing:-.035em}.head p{margin:4px 0;color:var(--muted)}.metric-line{display:flex;flex-wrap:wrap;gap:8px 24px;margin:14px 0 0;padding:12px 0;border-block:1px solid var(--line);font-size:13px;color:var(--muted)}.metric-line b{margin-right:6px;font:650 19px/1 var(--mono);color:var(--ink)}.tools,.downloads,.pager,.raw-nav{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.tools{margin:18px 0}.tools label{display:grid;gap:3px;color:var(--muted);font-size:12px}.tools input[type=search]{width:min(36vw,450px)}.tools select{max-width:min(32vw,300px)}.pager{align-items:center;justify-content:flex-end;margin-top:12px}.pager span{font:13px var(--mono)}.downloads{align-items:center;gap:10px 18px}.drawer{margin-top:22px;padding:12px 0}.drawer summary{width:max-content}
+.pair{display:grid;grid-template-columns:minmax(210px,29%) minmax(0,1fr);gap:16px;align-items:start}.surface,article{background:var(--paper);border:1px solid var(--line);border-radius:8px;min-width:0}.surface{overflow:hidden}.tree{padding:12px}.tree h2,.panel-head{font-size:15px;margin:0 0 8px}.tree ul{margin:0;padding-left:14px;list-style:none;border-left:1px solid #cbdcdd}.tree>ul{padding:0;border:0}.tree li{margin:1px 0}.tree button{display:block;width:100%;text-align:left;background:transparent;border:0;padding:7px 8px;overflow-wrap:anywhere;font-size:13px}.tree button[aria-current=page]{color:var(--green);background:var(--pale);font-weight:650}.tree small{display:block;font:11px/1.6 var(--mono);color:var(--muted)}article{padding:18px 20px;margin-bottom:10px}h2,h3,p{margin:.25em 0 .6em}h2{font-size:22px}h3{font-size:17px}.meta,.muted,.field strong{color:var(--muted)}.text,.meta,.field{overflow-wrap:anywhere}.field{margin:9px 0}.field strong{display:block;font-size:12px}.field span{white-space:pre-line}.callout{border-left:3px solid var(--green);padding:9px 13px;background:var(--pale)}details{border-top:1px solid var(--line);padding:7px 0}summary{font-weight:620;padding:4px 0;overflow-wrap:anywhere}.field button,details button{margin:3px}.table-scroll{overflow:auto;max-width:100%;border:1px solid var(--line);border-radius:7px;background:white}table{width:100%;border-collapse:collapse;text-align:left;font-size:14px}thead{background:#edf3f4;color:var(--muted);font-size:12px}th,td{border-bottom:1px solid #e5ebec;padding:10px 12px;vertical-align:top}td{overflow-wrap:anywhere}th{white-space:nowrap}tr:last-child td{border-bottom:0}tbody tr:hover{background:#f5faf9}.linkbtn{padding:0;background:transparent;border:0;color:var(--active);font-weight:620;text-align:left;overflow-wrap:anywhere}.num{font:14px var(--mono);white-space:nowrap}.bar{display:block;width:68px;height:4px;background:#e4eeec;margin-top:5px}.bar i{display:block;height:100%;background:#308b7e}.tag{color:var(--green);background:var(--pale);padding:2px 6px;border-radius:3px;font-size:12px}.raw-nav{margin:10px 0;align-items:center}.raw-nav input{width:90px}.raw td{white-space:pre-wrap;min-width:72px;max-width:400px}.raw tr[data-selected=true]{background:#fff1cb}#focus:empty{display:none}#focus{margin:8px 0}#menu,#close-menu{display:none}.project-note{font-size:13px;color:var(--muted)}
+@media(min-width:1550px){.app{grid-template-columns:240px minmax(0,1fr)}.rail{padding-left:23px;padding-right:23px}}
+@media(max-width:1000px){.app{grid-template-columns:176px minmax(0,1fr)}.rail{padding:20px 10px}.main{padding:18px}.pair{grid-template-columns:minmax(160px,29%) minmax(0,1fr)}}
+@media(max-width:740px){.app{display:block}.rail{display:none;position:fixed;inset:0 auto 0 0;width:225px;height:100dvh;z-index:3;box-shadow:6px 0 36px #123f4a35}.rail.open{display:flex}.top{padding:0 12px;height:48px;gap:8px}.top small{font-size:11px}#menu,#close-menu{display:block;flex-shrink:0}.main{padding:16px 12px 32px}.tools{gap:8px}.tools label{flex:1 1 130px}.tools input[type=search],.tools select{width:100%;max-width:100%}.pair{grid-template-columns:1fr}.tree{max-height:250px;overflow:auto}.head{display:block}.metric-line{gap:8px 14px}.metric-line b{font-size:16px}article{padding:14px}.table-scroll{max-width:calc(100vw - 24px)}th,td{padding:8px}.downloads{gap:8px 14px}.pager{justify-content:center}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="rail" id="rail" aria-label="工作台导航"><div class="brand"><span class="mark" aria-hidden="true"></span>网站架构工作台</div><button type="button" id="close-menu">关闭目录</button><nav id="nav" aria-label="工作视图"></nav><a class="rail-link" href="design.html">导航、模板与设计简报 ↗</a><footer>本地离线工作台</footer></aside>
+<div class="desk"><header class="top"><button id="menu" type="button" aria-expanded="false" aria-controls="rail">目录</button><strong id="project"></strong><small id="status"></small></header>
+<main class="main">
+<div class="head"><div><h1 id="view-title">网站架构</h1><p id="view-desc"></p></div></div>
+<div class="metric-line" id="metrics"></div>
+<div class="tools">
+<label>查找<input id="query" type="search" placeholder="搜索当前视图"></label>
+<label id="page-field">页面范围<select id="page"></select></label>
+<label id="term-field" hidden>词组长度<select id="term-length"><option value="0">全部</option><option value="1">单词</option><option value="2">连续两词</option><option value="3">连续三词</option></select></label>
+<label id="locale-field">市场 / 语言<select id="locale"></select></label>
+</div>
+<div id="focus"></div><div id="results"></div>
+<div class="pager" id="pager"><button id="prev" type="button">上一批</button><span id="count" aria-live="polite"></span><button id="next" type="button">下一批</button></div>
+<details class="drawer"><summary>下载分析与规划表</summary><div class="downloads" id="files"></div></details>
+</main></div></div>
+<script type="application/json" id="architecture-data">__ARCHITECTURE_DATA__</script>
+<script type="application/json" id="search-data">__SEARCH_PLAN__</script>
+<script>
+'use strict';
+const data = JSON.parse(document.getElementById('search-data').textContent);
+function unpack(fields, rows) {
+  return rows.map(cells => { const item={}; fields.forEach((field,i)=>{item[field]=cells[i];}); return item; });
+}
+data.decisions=unpack(data.word_fields,data.word_rows);
+data.ranks=unpack(data.rank_fields,data.rank_rows);
+delete data.word_rows;
+delete data.rank_rows;
+const byId = id => document.getElementById(id);
+const wordById = new Map(data.decisions.map(row => [row.keyword_id, row]));
+const pageById = new Map(data.pages.map(row => [row.id, row]));
+const prices = new Map(data.prices.map(row => [row.source_ref, row]));
+const ranks = new Map(data.ranks.map(row => [row.source_ref, row]));
+const valueById = new Map(data.values.filter(row => row.value_id).map(row => [row.value_id, row]));
+const labels = {full:'拟完整承接',partial:'拟部分承接',pending:'待核',out_of_scope:'范围外',unreviewed:'待补审阅',
+  primary:'主词',support:'辅助词',page:'页面',section:'同页章节',filter:'筛选项',defer:'待核',exclude:'排除',
+  new:'新建',reuse:'复用',revise:'改造',proposed:'拟议',confirmed:'已确认',candidate:'生成候选',source:'原表',plan_only:'计划内资料'};
+const title = key => labels[key] || key || '待补';
+const pageName = row => row ? [row.name_en || row.name, row.name_zh].filter(Boolean).join(' · ') : '';
+const modes = {pages:'网站架构',groups:'商业页面拆并',coverage:'意图覆盖',decisions:'整理后词库',terms:'词频与词组',
+  intents:'整句与采购意图',values:'属性与取值',inputs:'原始数据表',sites:'竞品站点',urls:'竞品流量与排名页',prices:'商品报价'};
+const sections = {'页面规划':['pages','groups','coverage'],'词库分析':['decisions','terms','intents','values'],
+  '输入与竞品':['inputs','sites','urls','prices']};
+const captions = {pages:'按父子层级查看每页的采购任务、关键词和内容模块。',groups:'比较同一取值的不同采购任务，以及每组词的拆并依据。',
+  coverage:'按来源、市场和语言核对完整承接、部分承接及尚待处理的需求。',decisions:'每行是同一市场、语言中的一个查询。点击原词可看分词、原始记录及页面归属。',
+  terms:'单词和连续两至三词按不同查询数排序。点击词组可展开全部原句。',intents:'从完整查询判断买家要完成的事，再查看同组的全部表达。',
+  values:'维度用成员并集计数。选择一个取值可查看全部成员。',inputs:'查看收到的文件、原始行与下载入口。',
+  sites:'打开客户提供的竞品站点，查看实访记录与该站收到的排名页。',urls:'按工具、日期及具体 URL 查看整页估算流量和收到的逐词排名。',
+  prices:'逐条核对商品标价、币种、数量、配置与交付条件。'};
+let selectedIntent='', selectedTerm=null, selectedSite='', sourceId='', sourceRow=1, activePage='', locale='';
+const groupById=new Map(data.intents.map(row=>[row.id,row]));
+const inputById=new Map(data.inputs.map(row=>[row.id,row]));
+const srcByKey=new Map(data.inputs.map(row=>[row.family+'|'+row.source_id,row]));
+data.terms=data.terms.map(([market,language,term,ngram,tf,df,denominator])=>({market,language,term,ngram,tf,df,denominator}));
+
+const scopeModes = new Set(['decisions','groups']);
+let mode = 'pages', selectedPage = '', selectedValue = '', selectedPlan = '', selectedDimension = null, selectedWord = '', offset = 0;
+const size = 30;
+function node(tag, value, cls) {
+  const item = document.createElement(tag);
+  if (value !== undefined && value !== null) item.textContent = String(value);
+  if (cls) item.className = cls;
+  return item;
+}
+function line(parent, label, value) {
+  const block = node('div', '', 'field');
+  block.append(node('strong',label),node('span',Array.isArray(value) ? value.join('\n') || '—' : value === '' || value == null ? '—' : value));
+  parent.append(block);
+}
+function action(label, handler) {
+  const b = node('button',label); b.type = 'button'; b.addEventListener('click',handler); return b;
+}
+function reset(view) {
+  mode = view; selectedIntent='';selectedTerm=null;selectedSite='';sourceId='';sourceRow=1;activePage='';locale='';byId('locale').value=''; selectedPage = ''; selectedValue = ''; selectedPlan = ''; selectedDimension = null; selectedWord = ''; offset = 0;
+  byId('query').value = ''; byId('page').value = '';
+}
+function openWords({page='', value='', plan='', dimension=null, word='',intent='',term=null}={}) {
+  reset('decisions'); selectedPage = page; selectedValue = value; selectedPlan = plan; selectedDimension = dimension; selectedWord = word; selectedIntent=intent;selectedTerm=term;
+  byId('page').value = page; navigate();
+}
+function details(label, parent) {
+  const d = node('details'); d.append(node('summary',label)); parent.append(d); return d;
+}
+function metric(parent, row) {
+  line(parent,'已知月搜索量 / 有量查询', (row.known_monthly_volume === '' ? '未提供' : row.known_monthly_volume) + ' · ' + row.volume_coverage);
+  line(parent,'KD 覆盖',row.kd_coverage);
+  if (row.kd_unknown !== undefined) line(parent,'KD 词数（低于 30 / 30 至低于 60 / 60–100 / 未知）',
+    [row.kd_under_30,row.kd_30_to_under_60,row.kd_60_to_100,row.kd_unknown].join(' / '));
+}
+function priceCard(box,row) {
+  external(box,row.url); line(box,'原始记录',[row.provider,row.observed_at,row.evidence_class]);sourceRef(box,'rankings',row.source_ref);
+  line(box,'原始报价',[row.price,row.price_type,row.currency,row.unit].filter(Boolean));
+  line(box,'可比条件',[['配置',row.configuration],['起订量',row.minimum_quantity],['交付地',row.destination],
+    ['贸易条件',row.delivery_basis],['税运',row.tax_freight],['有效期',row.valid_until]].map(([k,v])=>k+' · '+(v||'未知')));
+}
+function renderPage(box,p) {
+  box.append(node('h2',pageName(p)),node('p',p.id+' · '+p.url,'meta'));
+  if(p.primary_keyword)box.append(chip('主词 · '+p.primary_keyword));
+  line(box,'页面职责',p.objective); line(box,'页面安排',[title(p.page_action),title(p.approval),p.priority].filter(Boolean).join(' · '));line(box,'优先理由',p.priority_reason);
+  line(box,'拆并依据',p.rationale); line(box,'相邻页边界',[p.boundary,...p.adjacent_page_ids.map(id=>id+' '+pageName(pageById.get(id)))].filter(Boolean));
+  if(p.query_count)metric(box,p); line(box,'企业事实与待补资料',p.fact_gaps);
+  if(p.query_count)box.append(action('查看本页全部 '+p.query_count+' 个词',()=>openWords({page:p.id})));
+  const modules = data.modules.filter(m=>m.page_id===p.id);
+  for (const m of modules) {
+    const d = details(m.order+' · '+m.name+'（'+m.keyword_ids.length+' 词）',box);
+    line(d,'买家问题',m.buyer_question); line(d,'本页要回答的内容',m.content); line(d,'所需事实',m.required_facts);
+    for (const id of m.keyword_ids.slice(0,20)) d.append(action(wordById.get(id).keyword,()=>openWords({word:id})));
+    if(m.keyword_ids.length>20)d.append(node('p','此处列前 20 词。全部成员见本页关键词或内容模块 CSV。','muted'));
+  }
+  for(const c of data.comparisons.filter(c=>c.page_id===p.id)) {
+    const d=details('同类竞品 · '+c.url,box); line(d,'可比理由',c.reason); line(d,'页面观察',[c.page_type,c.status,c.observed_at]);
+  }
+  for(const ref of p.price_refs){const d=details('报价依据 · '+ref,box); priceCard(d,prices.get(ref));}
+}
+function renderWord(box,w) {
+  box.append(node('h3',w.keyword),node('p',[w.market,w.language,title(w.role),title(w.coverage),title(w.origin)].join(' · '),'meta'));
+  line(box,'原句分词', (data.tokens[w.keyword_id]||[]).join(' · '));line(box,'意图与主归属',[w.buyer_task,w.target_url||title(w.disposition),w.module_id].filter(Boolean));
+  line(box,'为什么这样安排',[w.reason,w.remaining_need].filter(Boolean));
+  if(w.page_id)box.append(action('打开页面简报',()=>openPage(w.page_id)));
+  const d=details('属性、指标与原始依据',box);
+  line(d,'维度与取值',w.dimension_value_ids.map(id=>{const v=valueById.get(id);return v.dimension+' · '+v.value}));
+  line(d,'月搜索量 / KD',[w.monthly_volume || w.monthly_volume_state,w.kd || w.kd_state].join(' / '));
+  line(d,'指标口径与来源',[data.metric_bases[w.volume_basis_id],data.metric_bases[w.kd_basis_id]].filter(Boolean).map(b=>Object.values(b).filter(Boolean).join(' · ')));
+  line(d,'指标原行',[...w.monthly_volume_refs,...w.kd_refs]);for (const ref of w.source_refs) sourceRef(d,'build',ref);line(d,'证据性质',w.source_classes);
+  for(const ref of w.ranking_refs){const r=ranks.get(ref); if(r)line(d,'排名观察',[r.url,'名次 '+(r.position||'未知'),r.observed_at,r.evidence_class,ref]); if(r)sourceRef(d,'rankings',ref);}
+}
+function renderGroup(box,g) {
+  box.append(node('h3',[g.dimension,g.value,g.buyer_task].filter(Boolean).join(' · ')));
+  line(box,'代表词',g.representative_keyword); line(box,'承接方式',[title(g.disposition),title(g.coverage),g.target_url].filter(Boolean));
+  metric(box,g); line(box,'拆并理由',g.reasons); line(box,'业务依据',[g.page_rationale,...g.business_evidence,...g.decision_evidence].filter(Boolean));
+  line(box,'成员实际排名 URL',g.ranked_urls); line(box,'同类实页依据',g.comparable_urls);
+  box.append(action('展开 '+g.query_count+' 个成员',()=>openWords({plan:g.planning_id})));
+}
+function renderValue(box,v) {
+  box.append(node('h3',v.dimension+(v.value?' · '+v.value:' · 全部取值')),node('p',[v.market,v.language].join(' · '),'meta'));
+  line(box,'定义',v.definition); line(box,'代表词',v.representative_keyword);metric(box,v);
+  box.append(action('查看 '+v.query_count+' 个不同查询',()=>v.value_id?openWords({value:v.value_id}):openWords({dimension:v})));
+}
+const rankScope = new Map();
+const keyOf = r => JSON.stringify([r.provider,r.competitor_id,r.market,r.language,r.observed_at,r.url,r.evidence_class]);
+for(const r of data.ranks) {const k=keyOf(r);if(!rankScope.has(k))rankScope.set(k,[]);rankScope.get(k).push(r);}
+function renderUrl(box,r) {
+  external(box,r.url);box.append(node('p',[r.market,r.language,r.provider,r.observed_at,r.evidence_class].join(' · '),'meta'));
+  line(box,'整页估算流量',r.page_estimated_traffic);line(box,'收到的不同排名词',r.ranked_keyword_count);
+  const members = rankScope.get(keyOf(r)) || [];
+  const d=details(members.length?'查看 '+members.length+' 条逐词观察':'此快照未收到逐词排名明细',box);
+  d.addEventListener('toggle',()=>{if(!d.open||d.childElementCount>1)return;
+    let n=0;
+    function more(){
+      for(const row of members.slice(n,n+40)){
+        const label=(row.keyword_original||'未识别查询')+' · '+(row.position||'名次未知')+' · '+row.source_ref;
+        if(wordById.has(row.keyword_id))d.append(action(label,()=>openWords({word:row.keyword_id})));else d.append(node('p',label));
+      }
+      n+=40;if(n<members.length){const b=action('继续展开排名行',()=>{b.remove();more();});d.append(b);}
+    }
+    more();});
+}
+const renders={pages:renderPage,decisions:renderWord,groups:renderGroup,values:renderValue,urls:renderUrl,
+  coverage:(box,r)=>{box.append(node('h3',[r.market,r.language,title(r.origin),title(r.coverage)].join(' · ')));metric(box,r);
+    line(box,'不同查询数',r.query_count);}, prices:(box,r)=>{box.append(node('h3',r.price));priceCard(box,r);}};
+function openPage(id) {reset('pages');activePage=id;navigate();}
+function external(parent, url, label) {
+  try {
+    const u=new URL(url);
+    if(!['https:','http:'].includes(u.protocol)||u.username||u.password)return;
+    const a=node('a',label||url,'text');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';parent.append(a);
+  } catch { parent.append(node('span',url,'text')); }
+}
+function sourceRef(parent,family,ref) {
+  const match=/^(.+):record:(\d+)$/.exec(ref);
+  const entry=match&&srcByKey.get(family+'|'+match[1]);
+  if(!entry){parent.append(node('small',ref+' ','meta'));return;}
+  parent.append(action(entry.name+' · 第 '+match[2]+' 条',()=>{reset('inputs');sourceId=entry.id;sourceRow=Number(match[2]);navigate();}));
+}
+function navigate(replace=false) {
+  const h=new URLSearchParams({view:mode});
+  for (const [key,value] of Object.entries({page:mode==='pages'?activePage:selectedPage,value:selectedValue,plan:selectedPlan,word:selectedWord,
+    intent:selectedIntent,site:selectedSite,file:sourceId,row:sourceId?sourceRow:'',locale,term:selectedTerm?.term,
+    termMarket:selectedTerm?.market,termLang:selectedTerm?.language,dimension:selectedDimension?.dimension,
+    dimMarket:selectedDimension?.market,dimLang:selectedDimension?.language})) if(value)h.set(key,value);
+  if(location.hash.slice(1)!==h.toString())history[replace?'replaceState':'pushState'](null,'','#'+h);
+  byId('rail').classList.remove('open');byId('menu').setAttribute('aria-expanded','false');draw();window.scrollTo(0,0);
+}
+function restore() {
+  const h=new URLSearchParams(location.hash.slice(1)),v=h.get('view');
+  reset(modes[v]?v:'pages');
+  if(mode==='pages')activePage=h.get('page')||'';else selectedPage=h.get('page')||'';
+  selectedWord=h.get('word')||'';selectedIntent=h.get('intent')||'';selectedValue=h.get('value')||'';selectedPlan=h.get('plan')||'';
+  selectedSite=h.get('site')||'';sourceId=h.get('file')||'';sourceRow=Math.max(1,Number(h.get('row'))||1);
+  if(h.has('term'))selectedTerm={term:h.get('term'),market:h.get('termMarket'),language:h.get('termLang')};
+  if(h.has('dimension'))selectedDimension={dimension:h.get('dimension'),market:h.get('dimMarket'),language:h.get('dimLang')};
+  locale=h.get('locale')||'';byId('locale').value=locale;byId('page').value=selectedPage;draw();
+}
+function cellButton(label,fn){const b=action(label,fn);b.className='linkbtn';return b;}
+function chip(label){return node('span',label,'tag');}
+function tableBox(headers, rows) {
+  const frame=node('div','','table-scroll'),t=node('table'),head=node('thead'),tr=node('tr'),body=node('tbody');
+  for(const h of headers){const th=node('th',h);th.scope='col';tr.append(th);}head.append(tr);t.append(head,body);
+  for(const cols of rows){const row=node('tr');for(const c of cols){const td=node('td');if(c instanceof Node)td.append(c);else td.textContent=c??'—';row.append(td);}body.append(row);}
+  frame.append(t);return frame;
+}
+function parentsTree(all, chosen, panel) {
+  const tree=node('div','','surface tree');tree.append(node('h2','页面层级'));
+  const allowed=new Set(all.map(r=>r.id)),byParent=new Map();
+  for(const p of all){const k=allowed.has(p.parent_id)?p.parent_id:'';if(!byParent.has(k))byParent.set(k,[]);byParent.get(k).push(p);}
+  function append(parentId,root) {
+    const ul=node('ul');
+    for(const p of byParent.get(parentId)||[]){
+      const li=node('li'),b=action(p.name_zh||p.name,()=>openPage(p.id));b.append(node('small',p.name_en||p.path));
+      if(p.id===chosen)b.setAttribute('aria-current','page');li.append(b);append(p.id,li);ul.append(li);
+    }
+    if(ul.childElementCount)root.append(ul);
+  }
+  append('',tree);panel.append(tree);
+}
+const blocks=new Map();
+let activeLoad='';
+window.workbenchRows=(id,part,rows)=>{
+  const key=id+'/'+part;
+  blocks.clear();blocks.set(key,rows);
+  if(mode==='inputs' && activeLoad===key)draw();
+};
+function rawView(box, entry) {
+  box.append(node('h2',entry.label||entry.name));
+  line(box,'来源',[entry.name,entry.provider,entry.observed_at,title(entry.evidence_class)].filter(Boolean).join(' · '));
+  if(entry.download){const a=node('a','下载原件');a.href=entry.download;a.download=entry.name;box.append(a);}
+  else box.append(node('p','该历史运行仅保存了解析后的原行。','muted'));
+  if(!entry.columns.length){box.append(node('p',entry.row_count===0?'收到空表。':'打开原件查看文件内容。','muted'));return;}
+  sourceRow=Math.max(1, Math.min(entry.row_count,sourceRow));const start=Math.floor((sourceRow-1)/20)*20;
+  const part=Math.floor(start/entry.chunk_size),key=entry.id+'/'+part;
+  const sourceRows=part===0?entry.preview:blocks.get(key);
+  const bar=node('div','','raw-nav'),input=node('input');input.type='number';input.min='1';input.max=entry.row_count;input.value=sourceRow;input.setAttribute('aria-label','跳到原始记录');
+  const jump=n=>{sourceRow=Math.max(1,Math.min(entry.row_count,Math.trunc(n)||1));navigate(true);};
+  const prev=action('前 20 条',()=>jump(start-19)),next=action('后 20 条',()=>jump(start+21));
+  prev.disabled=start===0;next.disabled=start+20>=entry.row_count;
+  bar.append(prev,next,node('span','共 '+entry.row_count+' 条'),input,action('定位原行',()=>jump(Number(input.value))));
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')jump(Number(input.value));});box.append(bar);
+  if(!sourceRows){
+    box.append(node('p','正在读取原始记录…','muted'));
+    if(activeLoad!==key) {
+      activeLoad=key;const script=node('script');
+      script.src='table-data/'+encodeURIComponent(entry.id)+'/'+part+'.js';
+      script.onload=()=>script.remove();
+      script.onerror=()=>{script.remove();activeLoad='';box.append(node('p','这组原行文件未随工作台打开，可下载原件核对。','callout'));};
+      document.head.append(script);
+    }
+    return;
+  }
+  activeLoad='';
+  const display=sourceRows.slice(start%entry.chunk_size,start%entry.chunk_size+20);
+  const t=tableBox(['原行',...entry.columns],display);t.classList.add('raw');
+  Array.from(t.querySelectorAll('tbody tr')).forEach((row,i)=>{if(display[i][0]===sourceRow)row.dataset.selected='true';});
+  box.append(t);
+}
+function renderInputList(box,rows){
+  box.append(tableBox(['文件','数据用途','已收到行','来源 / 日期','原件'],rows.map(r=>{
+    const a=node('a',r.download?'下载':'');if(r.download){a.href=r.download;a.download=r.name;}
+    return [cellButton(r.label||r.name,()=>{reset('inputs');sourceId=r.id;navigate();}),title(r.kind),r.row_count??'—',
+      [r.provider,r.observed_at].filter(Boolean).join(' · '),a];
+  })));
+}
+function requireData(mode){
+  return ({inputs:'附上本轮原始表或资料清单后，可在这里回查原行。',prices:'本轮输入没有商品报价记录。',
+    urls:'本轮输入没有对应的流量或排名快照。',sites:'本轮未提供竞品名单。'})[mode]||'当前范围没有匹配记录。';
+}
+function tableView(box,items) {
+  if(mode==='inputs'){renderInputList(box,items);return;}
+  if(mode==='terms'){
+    box.append(tableBox(['词或连续词组','不同查询数 DF','出现次数 TF','同口径词库','市场 / 语言'],items.map(t=>{
+      const val=node('div',String(t.df),'num'),bar=node('span','','bar'),i=node('i');i.style.width=(100*t.df/t.denominator)+'%';bar.append(i);val.append(bar);
+      return [cellButton(t.term,()=>openWords({term:t})),val,t.tf,t.denominator,t.market+' / '+(t.language||'未知')];})));return;
+  }
+  if(mode==='intents'){
+    box.append(tableBox(['采购任务','代表原句','不同查询数','主承接页','市场 / 语言'],items.map(g=>[
+      cellButton(g.buyer_task,()=>openWords({intent:g.id})),g.representative,g.query_count,
+      g.targets.map(id=>pageName(pageById.get(id))).join('、')||'待核或范围外',g.market+' / '+(g.language||'未知')])));return;
+  }
+  if(mode==='decisions' && !selectedWord){
+    box.append(tableBox(['完整原词','意图 / 采购任务','目标页与角色','承接程度','月量 / KD','市场 / 语言'],items.map(w=>[
+      cellButton(w.keyword,()=>openWords({word:w.keyword_id})),w.buyer_task,[pageById.get(w.page_id)?.name_zh,title(w.role)].filter(Boolean).join(' · '),
+      chip(title(w.coverage)),(w.monthly_volume===''?'—':w.monthly_volume)+' / '+(w.kd===''?'—':w.kd),w.market+' / '+(w.language||'未知')])));return;
+  }
+  if(mode==='sites'){
+    for(const site of items){const boxSite=node('article');boxSite.append(node('h2',site.name));external(boxSite,site.start_url||'https://'+site.domain+'/',site.domain);
+      line(boxSite,'业务角色与研究范围',[site.role,site.coverage]);line(boxSite,'选择依据',site.selection_reason||site.summary);
+      const list=data.reviews.filter(r=>r.competitor_id===site.id);
+      const reviewed=details('页面研究记录 · '+list.length,boxSite);
+      for(const r of list){external(reviewed,r.url);line(reviewed,'观察',[r.page_type,title(r.status),r.observed_at,r.summary].filter(Boolean));}
+      boxSite.append(action('查看该站流量与排名页',()=>{reset('urls');selectedSite=site.id;navigate();}));box.append(boxSite);
+    }return;
+  }
+  for(const row of items){const card=node('article');renders[mode](card,row);box.append(card);}
+}
+function hasPhrase(tokens,phrase) {
+  const parts=phrase.split(' ');
+  return tokens.some((token,i)=>token===parts[0]&&parts.every((part,j)=>tokens[i+j]===part));
+}
+function draw() {
+  for(const b of byId('nav').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.mode===mode));
+  byId('view-title').textContent=modes[mode];byId('view-desc').textContent=captions[mode];
+  byId('page-field').hidden=!scopeModes.has(mode);byId('term-field').hidden=mode!=='terms';
+  byId('locale-field').hidden=!['terms','intents','values','coverage','decisions','groups','prices','urls'].includes(mode);
+  byId('metrics').hidden=mode!=='pages';byId('pager').hidden=false;
+  const q=byId('query').value.trim().toLowerCase(),box=byId('results'),focus=byId('focus');box.replaceChildren();focus.replaceChildren();
+  if(mode==='inputs'&&inputById.has(sourceId)){
+    focus.append(action('返回全部原始资料',()=>{reset('inputs');navigate();}));
+    const panel=node('article');box.append(panel);rawView(panel,inputById.get(sourceId));byId('pager').hidden=true;return;
+  }
+  const length=Number(byId('term-length').value);
+  const filtered=data[mode].filter(r=>{
+    if(mode==='decisions' && selectedWord && r.keyword_id!==selectedWord)return false;
+    if(selectedPage && mode!=='pages' && r.page_id!==selectedPage)return false;
+    if(selectedValue && !r.dimension_value_ids.includes(selectedValue))return false;
+    if(selectedPlan && !r.planning_ids.includes(selectedPlan))return false;
+    if(selectedDimension && (!r.dimension_value_ids.some(id=>valueById.get(id).dimension===selectedDimension.dimension)
+        ||r.market!==selectedDimension.market||r.language!==selectedDimension.language))return false;
+    if(selectedIntent && r.group_id!==selectedIntent)return false;
+    if(selectedTerm && (r.market!==selectedTerm.market||r.language!==selectedTerm.language||!hasPhrase(data.tokens[r.keyword_id]||[],selectedTerm.term)))return false;
+    if(selectedSite && r.competitor_id!==selectedSite)return false;
+    if(mode==='terms' && length && r.ngram!==length)return false;
+    if(locale&&!byId('locale-field').hidden && JSON.stringify([r.market,r.language])!==locale)return false;
+    return !q || (mode==='decisions'? [r.keyword,r.keyword_id,r.buyer_task,r.target_url,r.module_id].join(' '):
+      mode==='terms'?r.term:mode==='inputs'?[r.name,r.label,r.kind,r.provider].join(' '):JSON.stringify(r)).toLowerCase().includes(q);
+  });
+  if(selectedWord||selectedValue||selectedPlan||selectedDimension||selectedIntent||selectedTerm||selectedSite){
+    const tag=selectedTerm?.term||selectedDimension?.dimension||valueById.get(selectedValue)?.value||
+      groupById.get(selectedIntent)?.buyer_task||wordById.get(selectedWord)?.keyword||selectedSite||'选定拆并组';
+    focus.append(chip(tag),action('清除选定范围',()=>{reset(mode);navigate();}));
+  }
+  if(mode==='pages'&&filtered.length){
+    const p=filtered.find(p=>p.id===activePage)||filtered[0],pair=node('div','','pair');parentsTree(filtered,p.id,pair);
+    const brief=node('article');renderPage(brief,p);pair.append(brief);box.append(pair);byId('pager').hidden=true;return;
+  }
+  if(!filtered.length)box.append(node('p',q?'当前范围没有匹配记录。':requireData(mode),'callout'));
+  else tableView(box,filtered.slice(offset,offset+size));
+  if(mode==='inputs' && !q && data.source_notes.length){
+    const notes=details('计划引用的其他资料与研究依据 · '+data.source_notes.length,box);
+    for(const s of data.source_notes){line(notes,s.label,[title(s.kind),s.scope,s.reference]);}
+  }
+  byId('count').textContent=filtered.length ? (offset+1)+'–'+Math.min(offset+size,filtered.length)+' / '+filtered.length : '0 项';
+  byId('prev').disabled=offset===0;byId('next').disabled=offset+size>=filtered.length;
+}
+Object.assign(labels,{keywords:'词库原表',rankings:'逐词排名',pages:'流量页面',prices:'商品报价',material:'客户资料',
+  competitors:'竞品名单',catalogue:'产品资料',simulation:'模拟数据',provider_export:'工具导出',user_provided:'用户资料',
+  model_inference:'推断候选',historical_sample:'历史资料',browser_observation:'实访',partial:'拟部分承接',
+  observed:'已实访',simulated:'模拟观察',blocked:'访问受阻',not_started:'尚未实访'});
+byId('project').textContent=data.project.name;
+byId('status').textContent=(data.project.mode==='simulation'?'教学模拟 · ':'')+'目标 '+data.project.market+' / '+data.project.language;
+for(const [label,num] of [['核心页',data.pages.filter(p=>p.page_type!=='article').length],['全库查询',data.summary.keywords],
+  ['采购任务组',data.intents.length],['接收文件记录',data.inputs.length]]){
+  const m=node('span');m.append(node('b',num),label);byId('metrics').append(m);
+}
+for(const [section,views] of Object.entries(sections)){
+  const group=node('div','','navgroup');group.append(node('span',section));
+  for(const view of views){const b=action(modes[view],()=>{reset(view);navigate();});b.dataset.mode=view;group.append(b);}
+  byId('nav').append(group);
+}
+const locales=new Map(data.decisions.map(w=>[JSON.stringify([w.market,w.language]),w.market+' / '+(w.language||'未知')]));
+byId('locale').append(new Option('全部市场与语言',''));for(const [key,label] of locales)byId('locale').append(new Option(label,key));
+byId('page').append(new Option('全部页面',''));for(const p of data.pages)byId('page').append(new Option(pageName(p),p.id));
+byId('page').addEventListener('change',e=>{selectedPage=e.target.value;offset=0;navigate(true);});
+byId('locale').addEventListener('change',e=>{locale=e.target.value;offset=0;navigate(true);});
+byId('term-length').addEventListener('change',()=>{offset=0;draw()});
+byId('query').addEventListener('input',()=>{offset=0;draw()});
+byId('prev').addEventListener('click',()=>{offset=Math.max(0,offset-size);draw()});
+byId('next').addEventListener('click',()=>{offset+=size;draw()});
+byId('menu').addEventListener('click',()=>{const open=byId('rail').classList.toggle('open');byId('menu').setAttribute('aria-expanded',String(open));if(open)byId('rail').querySelector('button').focus();});
+byId('close-menu').addEventListener('click',()=>{byId('rail').classList.remove('open');byId('menu').setAttribute('aria-expanded','false');byId('menu').focus();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){byId('rail').classList.remove('open');byId('menu').setAttribute('aria-expanded','false');if(window.innerWidth<=740)byId('menu').focus();}});
+for(const [name,label] of Object.entries({'clean-keywords':'整理后原词库','words-and-phrases':'全量词频与词组','intent-groups':'整句意图组',
+  'pages':'页面规划','keyword-decisions':'逐词归属','commercial-planning':'商业页面拆并','demand-coverage':'覆盖统计','dimension-values':'属性与取值',
+  'content-modules':'内容模块','received-rankings':'收到的排名','comparable-pages':'同类竞品依据','price-observations':'商品价格','input-files':'来源目录'})){
+  const a=node('a',label);a.href=name+'.csv';a.download='';byId('files').append(a);
+}
+window.addEventListener('popstate',restore);restore();
+</script>
+</body>
+</html>

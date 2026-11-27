@@ -2,9 +2,15 @@
 
 **把行业词库、竞争对手页面和企业资料，变成可以交给设计师或 AI 的网站规划。**
 
-适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。当前版本：**0.4.1**。
+适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。当前版本 **0.5.0**。
 
 它帮助你确定：网站建哪些页面、产品类目怎么分、应用方案怎么归类、类目页放哪些筛选器、产品详情需要填写哪些参数，以及哪些页面可以共用模板。
+
+## 打开交付工作台
+
+双击成果目录中的 **index.html**。左侧“页面规划”展示整站父子树，每个页面可查看买家问题、主辅词、内容模块、拆并理由及相邻页边界。“词库分析”提供全量原词、单词和连续词组 TF/DF、整句采购意图及属性取值。点击某一词组会展开全部匹配查询，再点一个查询即可回看承接页和来源行。
+
+“输入与竞品”集中展示原始 CSV、客户补充的产品工作簿和业务材料、竞品站点、Top Pages、各次排名与商品报价。整页流量和商品价格各有口径，原件保留可下载。工作台支持离线查阅与分页，交付时发送整个成果目录或其 ZIP。On-page 按页面编号读取确认的词组和模块，继续写 Title、H1、Subtitle、H2 和正文。[逐页规划与数据契约](skills/b2b-seo-site-architecture/references/search-planning.md)
 
 ## 怎样安装到 Codex
 
@@ -12,7 +18,7 @@
 
 ```text
 请使用 $skill-installer 安装这个 Skill：
-https://github.com/jackzhang1314/b2b-seo-site-architecture/tree/v0.4.1/skills/b2b-seo-site-architecture
+https://github.com/jackzhang1314/b2b-seo-site-architecture/tree/v0.5.0/skills/b2b-seo-site-architecture
 
 请检查安装是否成功，并告诉我怎样调用。
 这一步先完成安装，不开始网站规划或建站。
@@ -114,9 +120,13 @@ Applications 是有内容的集合页，Landscaping 和 Trenching 是其下的�
 
 比如 Weight Class（吨位等级）可以帮助分类；Operating Weight（工作重量）需要实际型号数值及单位。Overall Width（整机宽度）可以是详情参数，也可能用于筛选；数据不全时先保留填写要求，不虚构筛选范围。
 
-HTML显示可读摘要并标明覆盖数量，全量文件仍保留。工具原生主题、脚本统计与模型判断分别记录。方法参考：[Ahrefs Terms / Parent Topic](https://ahrefs.com/academy/how-to-use-ahrefs/keywords-explorer/matching-terms)、[Semrush 分组与子组](https://www.semrush.com/kb/617-keyword-magic-tool-manual)。
+工作台支持全量查询检索，设计简报的预览另标覆盖数量。工具原生主题、脚本统计与模型判断分别记录。方法参考：[Ahrefs Terms / Parent Topic](https://ahrefs.com/academy/how-to-use-ahrefs/keywords-explorer/matching-terms)、[Semrush 分组与子组](https://www.semrush.com/kb/617-keyword-magic-tool-manual)。
 
-## 当前验证范围
+## v0.5.0 验证范围
+
+85 项架构回归及 24 项内置词库回归通过。模拟挖掘机原表及课堂价格候选生成 17 个核心页面、29 个查询、86 个页面模块。桌面及 390 像素宽视图实测 11 个入口；五万查询的模拟库验证了全库尾部检索及第 1,001 条原行定位。On-page 按 2 Ton 系列页编号取回 5 个归属及对应模块。业务语义、排名和价格取自模拟材料，实际供货和 SEO 成效由客户资料与上线数据核实。
+
+## v0.4.1 历史验证
 
 0.4.1 通过 104 项相关检查（架构/属性/证据/交付 80 项，内置词库工具 24 项），以及 Python 类型、代码和Skill结构检查。HTML检查覆盖1440桌面与390手机模拟下的11个视图、流量表搜索和设计任务复制。
 

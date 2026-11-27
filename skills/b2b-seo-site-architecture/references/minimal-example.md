@@ -2,7 +2,7 @@
 
 给Codex理解结构与定位报错使用。用户仍然提供原始业务资料和表格，不需要制作JSON。本例只有1页、1模板和2条词，故意没有实访、整页流量与产品参数，不能当成完整网站方案。
 
-- [minimal-plan.json](../examples/minimal-plan.json)：完整0.4.0结构，0.4.1工具直接读取。
+- [minimal-plan.json](../examples/minimal-plan.json)：0.5.0 的一页、两词、一个模块，包括附件部分承接与属性别名。
 - [keywords.csv](../examples/keywords.csv)：与计划ID一致的合成词表。
 
 在自己选定的新输出目录执行（把`SKILL_DIR`替换为实际Skill目录）：
@@ -26,6 +26,8 @@ python3 SKILL_DIR/scripts/architecture.py --plan SKILL_DIR/examples/minimal-plan
 | `decisions` | `kw_demo_main→page`；`kw_demo_section→section` | 每词唯一主去向，章节/筛选词不自动变成整页主词 |
 
 `primary_keyword_id`非空时，必须对应`decisions`中同页且`disposition=page`的词。没有独立页面主词可以留空；不要为了通过检查把正确的section/filter决定改成page。
+
+生成后打开 `index.html`，选择“属性下钻”，展开 Mini Excavators 两词，在附件词上核对剩余需求。相同页面和模块编号可从 `keyword-decisions.csv`、`content-modules.csv` 读取。
 
 ## 常见报错怎样处理
 

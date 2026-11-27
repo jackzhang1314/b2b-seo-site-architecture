@@ -31,12 +31,12 @@ Python 3.11+、仅标准库。所有输出写新目录。脚本不访问网页�
 
 生成器自动复制完整分析到`analysis/`，写`analysis-manifest.json`与`analysis-index.md`；存在rankings分析时再把全量URL汇总与整页观察导出到成果根目录，并在HTML“竞品排名页”展示最多500组。仅有整页流量而没有词明细的URL也保留。交付整个成果目录或它的ZIP，不只发送HTML单文件。没有附带目录时兼容旧用法，但明确标记`analysis_delivery.status=not_attached`，不能称完整分析交付；有排名分析时还应核对`rankings_attached=true`及URL/整页记录数量。
 
-首次编排可运行[最小有效示例](minimal-example.md)，包含完整设计字段与常见报错的对应位置。发行版本0.4.1沿用0.4.0计划结构，不需迁移已有计划。
+首次编排可运行[最小有效示例](minimal-example.md)，包含完整设计字段与常见报错的对应位置。0.5.0 的逐词归属、模块与价格字段见[搜索规划](search-planning.md)。历史计划可直接生成，尚未记录的覆盖和模块归属保持待补。
 
 ## JSON结构
 
-- `schema_version`: 新计划为`0.4.0`；兼容既有`0.3.0`、`0.2.0`和`0.1.0`非博客计划，不改写历史输入/输出。
-- `project`: `name, site_url, market, language, mode, scope_note, exclude_blog`。mode为`simulation`或`real`；exclude_blog为布尔值，新计划通常false以允许博客；用户排除博客时true，旧0.1.0必须为true。允许博客不要求凑足文章或分类。
+- `schema_version`: 新计划为`0.5.0`，兼容既有`0.4.0`、`0.3.0`、`0.2.0`和`0.1.0`非博客计划，不改写历史输入/输出。
+- `project`: `name, site_url, market, language, mode, scope_note, exclude_blog`。mode为`simulation`或`real`；exclude_blog为布尔值，商业页面规划使用true。用户要求博客时设为false，旧0.1.0必须为true。允许博客不要求凑足文章或分类。
 - `sources`: `id, kind, label, reference, scope`。kind为`user_provided/provider_export/browser_observation/historical_sample/model_inference/simulation`。reference保存实际路径或HTTP(S)URL；scope标覆盖和限制。
 - `offerings`: `id, label, status, evidence_ids`。status为`supported/unknown/not_offered`；教学假设用simulation来源支持，并将project.mode设为simulation。
 - `competitors`: `id, name, domain, role, visit_status, menu_observed, summary, coverage, evidence_ids`。visit_status为`observed/partial/blocked/not_started/simulated`。可加`sample_group`（`top_competitor/low_authority_high_relevant_traffic/other`）和`selection_reason`；使用分组时必须写入选理由。权重指标名称/数值、引用域、相关流量、日期等保留原表及来源说明，未核值注明未知。模拟排名站不能冒充已访问。
@@ -103,6 +103,10 @@ application详情归application_hub集合页；主导航中的详情通过可点
 | 产物 | 用途 |
 | --- | --- |
 | index.html | 主视图为核心架构、完整页面设计简报、模板、导航、独立文章计划；词频、明细和研究证据按需展开。可复制单页设计任务并打开本地Markdown。离线可读，不依赖外部脚本 |
+| design.html | 导航、模板及可复制设计任务；主入口 index.html 提供架构树、全量词库、词频、语句意图、原始表、竞品与价格 |
+| commercial-planning.csv / dimension-values.csv / demand-coverage.csv | 属性取值、意图、拆并理由、指标与覆盖口径 |
+| content-modules.csv / comparable-pages.csv | 逐页模块内容、买家问题、成员词和实访可比理由 |
+| received-rankings.csv / price-observations.csv | 所选导出中的逐次排名和商品报价原文、条件与出处 |
 | architecture-plan.json | 经验证的决定快照；下游引用稳定页面/模板ID |
 | pages.csv | 核心页（含必要博客入口/分类）的层级、URL、关键词、内容和模板 |
 | content-plan.csv | 文章选题、所属分类、关键词、内容提纲、优先级、CTA、资料缺口和模板；不等于已写文章 |

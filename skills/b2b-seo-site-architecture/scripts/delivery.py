@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from keyword_evidence import url_summary
-from library import obj, read_table, write_json, write_table
+from library import items, obj, read_table, write_json, write_table
 
 
 def digest(path: Path) -> str:
@@ -30,12 +30,16 @@ class AnalysisDelivery:
     runs: list[dict[str, object]] = field(default_factory=list)
     urls: list[dict[str, str]] = field(default_factory=list)
     pages: list[dict[str, str]] = field(default_factory=list)
+    rankings: list[dict[str, str]] = field(default_factory=list)
+    prices: list[dict[str, str]] = field(default_factory=list)
+    metrics: list[dict[str, str]] = field(default_factory=list)
+    lineage: list[dict[str, str]] = field(default_factory=list)
     rankings_attached: bool = False
 
     def summary(self) -> dict[str, object]:
         return {"status": "attached" if self.runs else "not_attached", "runs": self.runs,
                 "files": len(self.files), "rankings_attached": self.rankings_attached,
-                "url_snapshots": len(self.urls), "page_metric_rows": len(self.pages),
+                "url_snapshots": len(self.urls), "price_rows": len(self.prices), "page_metric_rows": len(self.pages),
                 "scope": "Selected analysis runs only; page and keyword traffic are separate, never added."}
 
     def write(self, stage: Path) -> None:
@@ -89,20 +93,32 @@ def collect_analysis(directory: Path | None, keywords_path: Path, competitor_ids
         else:
             sha = run.get("keywords_sha256", run.get("input_sha256"))
             check(sha == expected_sha, f"keyword hash mismatch in {folder.name}; analysis must use the same complete keyword input")
+        if command == "build":
+            delivery.metrics = rows(folder / "keyword-observations.csv")
+            delivery.lineage = rows(folder / "lineage.csv")
         if command == "rankings":
-            ranks = rows(folder / "ranking-observations.csv")
+            ranks = delivery.rankings = rows(folder / "ranking-observations.csv")
+            if (folder / "price-observations.csv").is_file():
+                delivery.prices = rows(folder / "price-observations.csv")
             delivery.pages = rows(folder / "page-traffic-observations.csv")
-            check({r["competitor_id"] for r in ranks + delivery.pages} <= competitor_ids,
+            check({r["competitor_id"] for r in ranks + delivery.pages + delivery.prices} <= competitor_ids,
                   "ranking/page traffic competitor_id is absent from plan.competitors")
             delivery.urls = url_summary(ranks, delivery.pages)
             check(delivery.urls == rows(folder / "competitor-url-summary.csv"),
                   "URL summary differs from observations; rerun keyword_evidence.py rankings with the current Skill")
             delivery.rankings_attached = True
+        original_files: set[str] = set()
+        if command in {"build", "rankings"}:
+            registered = items(json.loads((folder / "source-register.json").read_text(encoding="utf-8-sig")))
+            original_files = {str(obj(r)["received_file"]) for r in registered if "received_file" in obj(r)}
         run_files = sorted(p for p in folder.rglob("*") if p.is_file())
         for path in run_files:
             check(not path.is_symlink() and path.resolve().is_relative_to(folder.resolve()),
                   f"analysis artifact must be a regular file within the selected run: {path.name}")
-            check(path.suffix in {".csv", ".xlsx", ".json", ".jsonl", ".md"},
+            archived = path.relative_to(folder).parts[0] == "originals"
+            allowed = (path.relative_to(folder).as_posix() in original_files if archived else
+                       path.suffix in {".csv", ".xlsx", ".json", ".jsonl", ".md"})
+            check(allowed,
                   f"unexpected artifact {path.name}; select only analysis outputs")
             relative = (Path("analysis") / folder.name / path.relative_to(folder)).as_posix()
             delivery.files.append((path, relative, digest(path)))

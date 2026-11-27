@@ -10,17 +10,22 @@ import math
 import re
 import sys
 import unicodedata
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 
 from delivery import collect_analysis
+from plan_records import (
+    Row as Row, active_design_modules as active_design_modules, index as index, obj as obj,
+    optional_records as optional_records, records as records, require as require, strings as strings, text as text,
+)
+from search_plan import SearchPlan
 
-# The patch release retains the 0.4.0 plan schema.
-VERSION = "0.4.0"
-TOOL_VERSION = "0.4.1"
-DESIGN_VERSIONS = {"0.3.0", VERSION}
+VERSION = "0.5.0"
+TOOL_VERSION = VERSION
+BILINGUAL_VERSIONS = {"0.4.0", VERSION}
+DESIGN_VERSIONS = {"0.3.0", *BILINGUAL_VERSIONS}
 SUPPORTED_VERSIONS = {"0.1.0", "0.2.0", *DESIGN_VERSIONS}
 BLOG_TYPES = {"blog", "blog_category", "article"}
 PAGE_TYPES = {
@@ -31,45 +36,6 @@ SOURCE_KINDS = {
     "user_provided", "provider_export", "browser_observation", "historical_sample", "model_inference", "simulation",
 }
 TARGET_DISPOSITIONS = {"page", "section", "filter"}
-Row = dict[str, object]
-
-
-def obj(value: object) -> Row:
-    if not isinstance(value, dict) or not all(isinstance(k, str) for k in value):
-        raise ValueError("Expected an object with string keys")
-    return {str(k): v for k, v in value.items()}
-
-
-def text(row: Row, key: str, *, empty: bool = False) -> str:
-    value = row.get(key)
-    if not isinstance(value, str) or (not empty and not value.strip()):
-        raise ValueError(f"Expected {'possibly empty ' if empty else ''}string: {key}")
-    return value
-
-
-def strings(row: Row, key: str, *, required: bool = False, unique: bool = True) -> list[str]:
-    value = row.get(key)
-    if not isinstance(value, list) or not all(isinstance(v, str) and v.strip() for v in value):
-        raise ValueError(f"Expected string list: {key}")
-    result = [str(v) for v in value]
-    if required and not result:
-        raise ValueError(f"Expected nonempty list: {key}")
-    if unique and len(result) != len(set(result)):
-        raise ValueError(f"Duplicate values in {key}")
-    return result
-
-
-def records(row: Row, key: str) -> list[Row]:
-    value = row.get(key)
-    if not isinstance(value, list):
-        raise ValueError(f"Expected object list: {key}")
-    return [obj(v) for v in value]
-
-
-def optional_records(row: Row, key: str) -> list[Row]:
-    return records(row, key) if key in row else []
-
-
 def traffic_estimate(row: Row) -> float | None:
     value = row.get("estimated_traffic")
     if value is None or isinstance(value, str) and value.strip().casefold() in {"", "n/a", "na", "unknown", "missing"}:
@@ -78,21 +44,6 @@ def traffic_estimate(row: Row) -> float | None:
     result = float(str(value))
     require(math.isfinite(result) and result >= 0, "Invalid traffic estimate")
     return result
-
-
-def index(rows: list[Row]) -> dict[str, Row]:
-    result: dict[str, Row] = {}
-    for row in rows:
-        ident = text(row, "id")
-        if ident in result:
-            raise ValueError(f"Duplicate id: {ident}")
-        result[ident] = row
-    return result
-
-
-def require(condition: bool, message: str) -> None:
-    if not condition:
-        raise ValueError(message)
 
 
 def http_url(value: str) -> str:
@@ -624,7 +575,7 @@ def bilingual(row: Row, key: str = "name") -> str:
 def validate_bilingual_structure(plan: Row, pages: dict[str, Row], templates: dict[str, Row],
                                  navigation: dict[str, Row], keywords: dict[str, dict[str, str]],
                                  sources: dict[str, Row]) -> Row:
-    if plan.get("schema_version") != VERSION:
+    if plan.get("schema_version") not in BILINGUAL_VERSIONS:
         return {"status": "legacy_not_required"}
     english = text(obj(plan["project"]), "language").lower().replace("_", "-").split("-")[0] == "en"
 
@@ -805,6 +756,10 @@ def value(cell: object) -> str:
 
 def write_csv(path: Path, rows: list[Row]) -> None:
     fields = list(dict.fromkeys(key for row in rows for key in row))
+    if not fields:
+        fields = {"content-plan.csv": ["id", "url", "page_type", "parent_id", "template_id", "market", "language"],
+                  "ranking-observations.csv": ["id", "keyword_id", "competitor_id", "url", "position", "market", "source_id"],
+                  "ranked-url-summary.csv": ["competitor_id", "url", "market", "source_id"]}.get(path.name, ["id"])
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -813,13 +768,6 @@ def write_csv(path: Path, rows: list[Row]) -> None:
 
 def dump(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-def active_design_modules(template: Row, page: Row) -> list[Row]:
-    if "design_spec" not in template:
-        return []
-    return [m for m in records(obj(template["design_spec"]), "modules")
-            if not strings(m, "variants") or page["variant"] in strings(m, "variants")]
 
 
 def factory_page_notes(plan: Row, pid: str) -> list[str]:
@@ -958,6 +906,7 @@ def research_markdown(plan: Row) -> str:
 def viewer_payload(payload: Row, keywords: dict[str, dict[str, str]]) -> Row:
     """Keep the HTML review concise; complete data stays in the JSON/CSV outputs."""
     result = dict(payload)
+    result.pop("dimension_values", None)  # The full offline search plan carries the memberships.
     scope: list[Row] = []
     needed_ids: set[str] = set()
     for key, filename in (("decisions", "keyword-decisions.csv"), ("ranking_observations", "ranking-observations.csv"),
@@ -981,6 +930,9 @@ def viewer_payload(payload: Row, keywords: dict[str, dict[str, str]]) -> Row:
             refs = strings(row, "reference_urls")
             row["reference_url_count"] = len(refs)
             row["reference_urls"] = refs[:20]
+            for field in ("support_keywords", "section_keywords", "ranked_urls"):
+                if field in row:
+                    row[field] = strings(row, field, unique=False)[:30]
         result[key] = rows
     if payload.get("keyword_analysis") is not None:
         analysis = obj(payload["keyword_analysis"])
@@ -1007,7 +959,8 @@ def viewer_payload(payload: Row, keywords: dict[str, dict[str, str]]) -> Row:
     return result
 
 
-def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analysis_dir: Path | None = None) -> Row:
+def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analysis_dir: Path | None = None,
+                         materials: Path | None = None) -> Row:
     require(not out.exists(), "Choose a new output directory; existing outputs are preserved")
     raw: object = json.loads(plan_path.read_text(encoding="utf-8-sig"))
     plan = obj(raw)
@@ -1031,15 +984,24 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
         return chain
 
     page_rows: list[Row] = []
+    by_page: dict[str, list[str]] = defaultdict(list)
+    owner: dict[str, str] = {}
+    top_urls: dict[str, dict[str, None]] = defaultdict(dict)
+    for decision in decisions:
+        pid, kid = text(decision, "page_id", empty=True), text(decision, "keyword_id")
+        owner[kid] = pid
+        by_page[pid].append(kid)
+    for rank in ranking_rows:
+        position = text(rank, "position", empty=True)
+        if position and int(position) <= 30:
+            top_urls[owner[text(rank, "keyword_id")]][text(rank, "url")] = None
     for page in pages.values():
         primary = text(page, "primary_keyword_id", empty=True)
-        words = [keywords[text(d, "keyword_id")]["keyword_original"] for d in decisions if d.get("page_id") == page["id"]]
-        assigned_ids = {text(d, "keyword_id") for d in decisions if d.get("page_id") == page["id"]}
-        reference_urls = list(dict.fromkeys(text(r, "url") for r in ranking_rows
-                                           if r["keyword_id"] in assigned_ids and text(r, "position", empty=True)
-                                           and 1 <= int(text(r, "position")) <= 30))
+        pid = text(page, "id")
+        words = [keywords[kid]["keyword_original"] for kid in by_page[pid]]
+        reference_urls = list(top_urls[pid])
         page_rows.append({**page, "breadcrumbs": breadcrumbs(page), "breadcrumbs_en": breadcrumbs(page, "name_en"),
-                          **({"breadcrumbs_zh": breadcrumbs(page, "name_zh")} if plan.get("schema_version") == VERSION else {}),
+                          **({"breadcrumbs_zh": breadcrumbs(page, "name_zh")} if plan.get("schema_version") in BILINGUAL_VERSIONS else {}),
                           "url": text(project, "site_url").rstrip("/") + text(page, "path"),
                           "primary_keyword": keywords[primary]["keyword_original"] if primary else "",
                           "covered_keywords": words, "reference_urls": reference_urls,
@@ -1057,6 +1019,11 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
     decision_rows = [{**d, "keyword": keywords[text(d, "keyword_id")]["keyword_original"],
                       "market": keywords[text(d, "keyword_id")]["market"],
                       "language": keywords[text(d, "keyword_id")]["language"]} for d in decisions]
+    search_plan = SearchPlan(plan, page_rows, decision_rows, keywords, delivery)
+    validation["search_planning"] = search_plan.summary
+    validation["workbench_analysis"] = {"source": "complete_keyword_input", "ngram": [1, 2, 3], "keywords": len(keywords),
+                                        "group_assignments": len(decision_rows), "plan_ranking_rows": len(ranking_rows),
+                                        "received_ranking_rows": len(delivery.rankings)}
     validation["inputs"] = {
         str(p.resolve()): hashlib.sha256(p.read_bytes()).hexdigest() for p in (plan_path, keywords_path)
     }
@@ -1076,6 +1043,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
         stage = Path(temporary) / "result"
         stage.mkdir()
         delivery.write(stage)
+        search_plan.write(stage, encoded, keywords_path, materials)
         dump(stage / "architecture-plan.json", plan)
         dump(stage / "validation.json", validation)
         for filename, rows in (("pages", core_rows), ("content-plan", article_rows), ("templates", template_rows),
@@ -1088,7 +1056,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
             for filename, key in (("term-frequency", "terms"), ("tokenized-keywords", "tokenized_keywords"),
                                   ("category-candidates", "category_candidates")):
                 write_csv(stage / f"{filename}.csv", records(analysis, key))
-        (stage / "index.html").write_text(template_html.replace("__ARCHITECTURE_DATA__", encoded), encoding="utf-8")
+        (stage / "design.html").write_text(template_html.replace("__ARCHITECTURE_DATA__", encoded), encoding="utf-8")
         if plan.get("schema_version") in DESIGN_VERSIONS:
             module_rows: list[Row] = []
             field_rows = [{"template_id": "SITE", **row} for row in records(obj(plan["site_design"]), "fields")]
@@ -1102,7 +1070,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
             (stage / "research-report.md").write_text(research_markdown(plan), encoding="utf-8")
             (stage / "design-briefs.md").write_text("\n\n---\n\n".join(
                 text(p, "design_prompt") for p in page_rows if p.get("design_prompt")), encoding="utf-8")
-        if plan.get("schema_version") == VERSION:
+        if plan.get("schema_version") in BILINGUAL_VERSIONS:
             write_csv(stage / "product-attributes.csv", optional_records(plan, "product_attributes"))
         tree_lines = ["# " + text(project, "name"), "", text(project, "scope_note"), ""]
 
@@ -1117,7 +1085,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
         handoff = ["# 页面与模板设计交接", "", text(project, "scope_note"), "",
                    f"本次规划{len(core_rows)}个核心页面、{len(article_rows)}个独立文章选题、"
                    f"{len(template_rows)}类页面设计。文章详单见content-plan.csv，不进入架构图或菜单。", "",
-                   f"其中{sum(p.get('state') == 'conditional' for p in pages.values())}个节点待业务确认；"
+                   f"其中{sum(p.get('state') == 'conditional' for p in pages.values())}个节点因业务条件仍待定；"
                    "待核页面先保留资料要求，不进入正式导航。所有规划页仍需真实内容后才能发布。", "",
                    "## 交给 WordPress Builder Harness", "",
                    "当前阶段：架构与模板设计简报。下一步由wordpress-builder接续到核心页/模板代表页设计；"
@@ -1141,7 +1109,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
                         "字段：" + "、".join(strings(template, "fields")), "", text(template, "rationale"), ""]
         handoff += ["## 逐页内容与资料", ""]
         if plan.get("schema_version") in DESIGN_VERSIONS:
-            handoff += ["完整模块、字段、桌面/手机布局及可复制的设计任务见index.html的设计简报，"
+            handoff += ["完整模块、字段、桌面/手机布局及可复制的设计任务见design.html的设计简报，"
                         "以及design-briefs.md；原始拆解与逐轮取舍见research-report.md。", "",
                         "工厂身份按factory_profile的真实业务角色表达；各项能力和证书只使用已核企业证据，"
                         "模拟和待补项不得升级为真实承诺。", ""]
@@ -1166,9 +1134,10 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--analysis-dir", type=Path,
                         help="Selected current analysis runs to copy with the final HTML, including page traffic")
+    parser.add_argument("--materials", type=Path, help="Manifest of additional customer-supplied originals to include")
     args = parser.parse_args()
     try:
-        result = compile_architecture(args.plan, args.keywords, args.out, args.analysis_dir)
+        result = compile_architecture(args.plan, args.keywords, args.out, args.analysis_dir, args.materials)
     except (OSError, ValueError, KeyError) as exc:
         print(json.dumps({"status": "failed", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1
