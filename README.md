@@ -2,15 +2,17 @@
 
 **把行业词库、竞争对手页面和企业资料，变成可以交给设计师或 AI 的网站规划。**
 
-适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。本地开发版本 **0.7.0**。
+适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。本地开发版本 **0.8.0**。
 
 它帮助你确定：网站建哪些页面、产品类目怎么分、应用方案怎么归类、类目页放哪些筛选器、产品详情需要填写哪些参数，以及哪些页面可以共用模板。
 
 ## 打开交付工作台
 
-双击成果目录中的 **index.html**。首页显示当前浏览的方案、待企业确认的建页机会和商业页面规划表。展开机会可看需核实的问题、同行具体网址和数据原行。用页名、网址或买家查询查找页面，再看主辅词、模块、拆并理由和相邻页边界。在“词频与词组”点一个词组可查看全部匹配原句，再点原句可回到承接页与原表记录。
+打开 Codex 交付的工作台网址，逐页选择 **要建 / 不建 / 待定**。首页显示三种选择的数量，支持按状态、页名、网址或关键词筛选。点击页面名可以核对采购任务、主辅词、模块、同行证据和相邻页边界。看到「已保存到项目」后点击 **复制工作台链接**，把它交给负责建站或更新内容的 Codex。新方案的页面初始均为待定。
 
-![模拟挖掘机项目的工作台，左侧为网站层级，右侧为两吨系列页的采购任务与模块](docs/workbench-example.png)
+重开时，已安装 Skill 的 Mac 可以双击成果目录里的 **打开可编辑工作台.command**。也可运行 `python3 <本Skill目录>/scripts/workbench.py --workbench <成果目录>`。本机服务沿用原地址与已保存的选择。其他电脑可接收整个成果目录并在本机启动。双击 `index.html` 可打开只读预览。
+
+![挖掘机模拟项目的商业页面规划与逐页确认](docs/workbench-example.png)
 
 “输入与竞品”集中展示原始 CSV、客户补充的产品工作簿和业务材料、竞品站点、Top Pages、各次排名与商品报价。整页流量和商品价格各有口径，原件保留可下载。工作台支持离线查阅与分页，交付时发送整个成果目录或其 ZIP。On-page 按页面编号读取确认的词组和模块，继续写 Title、H1、Subtitle、H2 和正文。[逐页规划与数据契约](skills/b2b-seo-site-architecture/references/search-planning.md)
 
@@ -18,7 +20,7 @@
 
 此分支的版本切换与机会清单可从本地安装使用。上一版的离线包和校验清单可从 GitHub 下载。[下载 v0.6.0 ZIP](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.6.0/b2b-seo-site-architecture-0.6.0.zip) · [下载校验清单](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.6.0/b2b-seo-site-architecture-0.6.0.manifest.json)
 
-新生成的工作台先作为草案。选定后，可告诉 Codex「采用这个目录里的架构方案」，或对该目录执行 `architecture.py --project-root <网站> --register-existing <工作台> --adopt`。日常 On-page 和 WordPress Builder 使用当前采用版。审阅草案的单页时，从工作台复制该页的 On-page 指令。完整项目中可看版本变化，从当前页切换到另一版的相同位置。
+新生成的工作台先作为草案。选定后，可告诉 Codex「采用这个目录里的架构方案」，或对该目录执行 `architecture.py --project-root <网站> --register-existing <工作台> --adopt`。未指定网址时，On-page 和 WordPress Builder 使用当前采用版。发给 Codex 具体工作台网址时，使用该网址对应版本的逐页选择。审阅草案的单页时，从工作台复制该页的 On-page 指令。完整项目中可看版本变化，从当前页切换到另一版的相同位置。
 
 ## 怎样安装到 Codex
 
@@ -84,6 +86,7 @@ Skill 不包含 Ahrefs、Semrush 账号或付费数据。你已有的工具导�
 
 | 成果 | 用来做什么 |
 | --- | --- |
+| `workbench-handoff.json` | 已保存的逐页选择、版本、页面关系和交接资料入口 |
 | `index.html` | 在架构树、词频、整句意图、竞品和原始表之间切换，从具体需求查到页面、模块与来源 |
 | `design.html` | 查看导航、模板、产品属性以及可复制的逐页设计简报 |
 | `commercial-planning.csv`、`keyword-decisions.csv`、`content-modules.csv` | 查每个取值与采购任务的拆并理由、每个词的主归属，以及具体由哪个模块回答 |

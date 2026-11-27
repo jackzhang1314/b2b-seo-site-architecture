@@ -21,11 +21,12 @@ from plan_records import (
     optional_records as optional_records, records as records, require as require, strings as strings, text as text,
 )
 from search_plan import SearchPlan, workbench_template
+from page_confirmation import create_handoff
 from register_project import register
 from seo_project import project_for
 
 VERSION = "0.5.0"
-TOOL_VERSION = "0.7.0"
+TOOL_VERSION = "0.8.0"
 BILINGUAL_VERSIONS = {"0.4.0", VERSION}
 DESIGN_VERSIONS = {"0.3.0", *BILINGUAL_VERSIONS}
 SUPPORTED_VERSIONS = {"0.1.0", "0.2.0", *DESIGN_VERSIONS}
@@ -1128,6 +1129,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
                         "输入范围的排名URL（来源性质见证据）：" +
                         ("；".join(strings(page, "reference_urls")) or "本输入范围暂无关联"), ""]
         (stage / "design-handoff.md").write_text("\n".join(handoff), encoding="utf-8")
+        create_handoff(stage, project)
         require(not out.exists(), "Output appeared during execution")
         stage.rename(out)
     if project_root:

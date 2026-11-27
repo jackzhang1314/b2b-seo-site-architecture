@@ -19,7 +19,7 @@ from plan_records import Row, active_design_modules, index, obj, optional_record
 def workbench_template(asset: Path) -> str:
     template = asset.read_text(encoding="utf-8")
     components = {"/* __REVIEW_LAYOUT__ */": "review-layout.css", "/* __VERSION_PANEL__ */": "version-panel.js",
-                  "/* __OPPORTUNITIES__ */": "page-opportunities.js"}
+                  "/* __PAGE_CONFIRMATION__ */": "page-confirmation.js", "/* __OPPORTUNITIES__ */": "page-opportunities.js"}
     for marker, filename in components.items():
         if marker in template:
             template = template.replace(marker, asset.with_name(filename).read_text(encoding="utf-8"))
@@ -305,7 +305,7 @@ class SearchPlan:
             write_rows(stage / f"{filename}.csv", rows, fields)
         page_fields = ("id", "name", "name_en", "name_zh", "url", "page_type", "parent_id", "template_id", "priority",
                        "objective", "rationale", "evidence_ids", "fact_gaps", "primary_keyword", "boundary", "approval",
-                       "page_action", "priority_reason", "adjacent_page_ids", "price_refs", "query_count",
+                       "page_action", "state", "priority_reason", "adjacent_page_ids", "price_refs", "query_count",
                        "volume_coverage", "known_monthly_volume", "kd_coverage")
         # Normalize the high-volume HTML tables. CSVs retain the complete analytical fields.
         bases: list[object] = []

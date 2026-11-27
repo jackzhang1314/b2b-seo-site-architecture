@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="workbench-revision" content="__WORKBENCH_REVISION__">
+<link rel="alternate" type="application/json" title="用户确认的页面与建站、SEO 上下文" href="workbench-handoff.json">
+<script type="application/json" id="saved-page-context"></script>
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -19,6 +22,7 @@
 </head>
 <body data-workbench="design">
 <main class="shell">
+<noscript><p><a href="workbench-handoff.json">读取本版用户逐页确认清单</a></p><!-- saved-page-list --></noscript>
 <details id="version-panel" aria-label="架构方案版本"></details>
 <header class="masthead"><div><h1 id="project-title">网站页面架构</h1><p class="subline">以采购需求和工厂证据规划核心页，再把模块、字段与布局交给设计。</p></div></header>
 <p class="scope" id="scope-note"></p>
@@ -34,7 +38,7 @@
 </section>
 <section id="view-design" class="view hidden" role="tabpanel">
 <div class="toolbar"><div><h2>从页面结构到完整设计图</h2><p class="small muted">选择核心页或模板代表页，查看内容、布局、字段与工厂信任信息。</p></div><select class="brief-select" id="brief-select" aria-label="选择页面设计简报"></select></div>
-<div id="brief-header" class="panel brief-intro"></div>
+<div id="brief-page-choice" class="field"></div><small id="brief-save-status" role="status"></small><div id="brief-header" class="panel brief-intro"></div>
 <div id="brief-factory"></div>
 <p id="brief-research" class="brief-research"></p>
 <div id="brief-modules" class="brief-grid"></div>
@@ -54,9 +58,11 @@
 <footer><span>结构校验通过只表示记录一致；页面判断、真实业务和设计仍需对应验收。</span><span>支持离线阅读 · 所有展示由同一份规划记录生成</span></footer>
 </main>
 <script type="application/json" id="architecture-data">__ARCHITECTURE_DATA__</script>
+<script src="workbench-open.js"></script>
 <script src="workbench-context.js"></script>
 <script>
 /* __VERSION_PANEL__ */
+/* __PAGE_CONFIRMATION__ */
 "use strict";
 const data=JSON.parse(document.getElementById('architecture-data').textContent);
 if(data.project.exclude_blog&&!data.articles.length)document.querySelector('button[data-view="articles"]').hidden=true;
@@ -115,6 +121,9 @@ const fieldScopes={site:'全站共用',page:'单页内容',item:'每条记录'};
 function jumpBrief(id){showView('design');document.getElementById('brief-select').value=id;renderBrief(id);document.getElementById('view-design').scrollIntoView({block:'start',behavior:'auto'});}
 function renderBrief(id){const p=pages.get(id),header=clear('brief-header'),modulesRoot=clear('brief-modules'),factory=clear('brief-factory'),fieldRoot=clear('brief-fields');document.getElementById('brief-copy-status').textContent='';document.getElementById('brief-copy-text').value=p?.design_prompt?
   (architectureVersion.directory?'本次设计简报取自「'+architectureVersion.label+'」 '+architectureVersion.directory+'。':'请按所附完整工作台的设计简报审阅。')+'\n页面 '+p.id+' · '+p.url+'\n'+p.design_prompt:'';
+  const choice=document.getElementById('brief-page-choice');choice.replaceChildren();
+  if(p && p.page_type!=='article'){choice.append(el('strong','本次是否建页'),pageChoices.controls(p.id));}
+  if(p?.design_prompt)document.getElementById('brief-copy-text').value=pageChoices.note(p.id)+'\n'+document.getElementById('brief-copy-text').value;
   document.getElementById('back-to-planning').href=p?'index.html#'+new URLSearchParams({view:'pages',page:p.id}):'index.html';if(!p?.design_brief||!templates.get(p.template_id).design_spec){header.append(el('p','此旧版计划尚无完整模块与字段设计简报，请按当前研究要求补充。'));document.getElementById('brief-research').textContent='';document.getElementById('research-files').hidden=true;return;}document.getElementById('research-files').hidden=false;const t=templates.get(p.template_id),spec=t.design_spec,b=p.design_brief,site=data.site_design;const left=el('div'),right=el('div');left.append(el('span',p.id+' · '+labelText(t)+' / '+p.variant,'badge type'),el('h2',primaryName(p)),el('p',translation(p),'small muted'),el('p',labelText(b,'primary_message')),el('p','读者：'+b.audience,'small muted'),el('p','页面任务：'+p.objective,'small'),el('p','主要行动：'+labelText(p,'cta'),'small'));right.append(el('h3','视觉与内容方向'),el('p',b.emphasis,'small'),el('p','文案：'+b.copy_direction,'small'),el('p','图片：'+b.image_direction,'small'),el('p','共用页头与页脚：'+site.header+'；'+site.footer,'small muted'));header.append(left,right);if(p.factory_notes.length){const box=el('details','','brief-extras');box.open=false;box.append(el('summary','本页怎样体现工厂与采购信任'),list(p.factory_notes));factory.append(box);}const coverage=data.validation.design_specification.research;document.getElementById('brief-research').textContent='核心URL目标 '+coverage.target_count+' 个；本次完整实访 '+(coverage.latest_status_counts.observed||0)+' 个。'+(data.project.mode==='simulation'?'当前为MOCK结构演示，不能当作真实竞品结论。':'其余访问状态见本地调研报告。');const fields=new Map([...site.fields,...spec.fields].map(f=>[f.id,f]));const active=spec.modules.filter(m=>!m.variants.length||m.variants.includes(p.variant));const notes=new Map(b.module_notes.map(n=>[n.module_id,n.content_note]));active.forEach((m,i)=>{const card=el('details','','module-card');card.dataset.module=m.id;card.open=i===0;const summary=el('summary'),title=el('div','','module-title');title.append(el('strong',labelText(m)),el('small',m.purpose));summary.append(el('span',i+1,'module-number'),title,el('span',m.required?'必需':'条件模块','badge'));const body=el('div','','module-body');body.append(el('p','显示条件：'+m.condition,'small muted'),list(m.content));if(notes.has(m.id))body.append(el('p','本页内容：'+notes.get(m.id)));const pair=el('div','','layout-pair');for(const [label,content] of [['桌面布局',m.desktop_layout],['手机布局',m.mobile_layout]]){const block=el('div');block.append(el('h4',label),el('p',content,'small'));pair.append(block);}body.append(pair,el('p','交互：'+m.interaction,'small'),el('p','内容字段：'+m.field_ids.map(id=>labelText(fields.get(id),'label')).join(' · '),'small'),el('p','为什么采用：'+m.decision,'small muted'));if(m.study_ids.length){const refs=el('details');refs.append(el('summary','查看竞品研究依据'));for(const sid of m.study_ids){const study=data.competitor_page_reviews.find(r=>r.id===sid);const a=el('a',study.url+' · '+study.status+' · 第'+study.review_round+'轮');a.href=study.url;a.target='_blank';a.rel='noopener noreferrer';const line=el('p');line.append(a);refs.append(line);}body.append(refs);}card.append(summary,body);modulesRoot.append(card);});const used=new Set([...site.fields.map(f=>f.id),...active.flatMap(m=>m.field_ids)]);table(fieldRoot,['字段','类型 / 范围','要求','格式或结构','资料状态 / 来源','缺失处理'],[...used].map(id=>{const f=fields.get(id);return[labelText(f,'label'),fieldKinds[f.kind]+' / '+fieldScopes[f.scope],f.required?'必填':'可选',f.format,fieldStatuses[f.value_status]+'；'+f.source,f.missing_policy]}));}
 function setupBriefs(){const select=document.getElementById('brief-select');for(const p of [...data.pages,...data.articles.filter(p=>p.design_prompt)]){const option=el('option',labelText(p)+' · '+p.template_id);option.value=p.id;select.append(option);}select.addEventListener('change',()=>renderBrief(select.value));renderBrief(data.pages[0].id);}
 document.getElementById('copy-brief').addEventListener('click',async()=>{const input=document.getElementById('brief-copy-text'),status=document.getElementById('brief-copy-status');if(!input.value){status.textContent='此计划尚无完整设计任务。';return;}try{if(!navigator.clipboard)throw new Error('clipboard unavailable');await navigator.clipboard.writeText(input.value);status.textContent='已复制完整页面设计任务。';}catch{input.focus();input.select();status.textContent='已选中全文，请使用系统复制快捷键。';}});
@@ -132,6 +141,7 @@ function openLinkedBrief(){
 }
 window.addEventListener('hashchange',openLinkedBrief);
 openLinkedBrief();
+document.addEventListener('workbench-choice-update',()=>{const id=document.getElementById('brief-select').value;if(id)renderBrief(id);pageChoices.summary();});
 document.addEventListener('architecture-version-ready',()=>{
   const select=document.getElementById('brief-select');
   if(select.value)renderBrief(select.value);

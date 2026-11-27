@@ -16,7 +16,7 @@ from seo_project import (
 )
 from revisions import ROLES, RolePaths, catalogue, read_revisions
 
-FILES = {"workbench": "index.html", "plan": "architecture-plan.json", "pages": "pages.csv",
+FILES = {"handoff": "workbench-handoff.json", "workbench": "index.html", "plan": "architecture-plan.json", "pages": "pages.csv",
          "library": "clean-keywords.csv", "decisions": "keyword-decisions.csv", "rankings": "received-rankings.csv",
          "top_pages": "page-traffic-observations.csv", "comparables": "comparable-pages.csv",
          "planning": "commercial-planning.csv", "intents": "intent-groups.csv", "frequency": "words-and-phrases.csv",
@@ -25,7 +25,7 @@ FILES = {"workbench": "index.html", "plan": "architecture-plan.json", "pages": "
          "design": "design.html", "templates": "templates.csv", "navigation": "navigation.csv",
          "design_modules": "design-modules.csv", "design_briefs": "design-briefs.md",
          "attributes": "product-attributes.csv", "design_handoff": "design-handoff.md"}
-LABELS = {"workbench": "工作台 HTML", "pages": "网站页面规划", "library": "清洗后的行业词库",
+LABELS = {"handoff": "用户逐页确认清单", "workbench": "工作台 HTML", "pages": "网站页面规划", "library": "清洗后的行业词库",
           "decisions": "逐词页面归属", "rankings": "竞品逐词排名", "top_pages": "竞品 Top Pages 数据",
           "raw_catalog": "全部原始资料清单", "opportunities": "待核与已取舍的建页机会", "design": "建站设计简报"}
 
@@ -122,6 +122,8 @@ def render_entry(root: Path, index_path: Path, entry: dict[str, object], role: s
     rows = [f"### {scope} · {label}", "- " + ROLES[role] + ": " + link(label + "的架构索引", index_path)]
     if role != "adopted":
         rows.append("- " + link(label + "的工作台", local_file(folder, role_paths["workbench"])))
+        if "handoff" in role_paths:
+            rows.append("- " + link(label + "的用户逐页确认清单", local_file(folder, role_paths["handoff"])))
         return "\n".join(rows)
     rows.append("- " + " · ".join(link(label, local_file(folder, role_paths[role]))
                                   for role, label in LABELS.items() if role in role_paths))
@@ -183,7 +185,10 @@ def register(root: Path, directory: Path, *, adopt: bool = False) -> Path:
         sections = [render_entry(root, path, entries[path][1], entries[path][0]) for path in order]
         region = (START + "\n## SEO 网站架构与数据\n\n"
                   "建站和日常 SEO 读取对应站点、市场及语言的「当前采用」索引。只有草案时，实施方案尚待选定。"
-                  "审阅指定草案时，从其索引读取完整资料，On-page 用 --source 指向该草案目录。\n\n"
+                  "用户给出具体工作台链接时，按链接读取该版最新的用户逐页确认清单。build 纳入本次工作，skip 跳过，pending 待定。"
+                  "用页面编号关联本版的关键词、模块和建站模板。此选择独立于采用版登记。旧版缺少逐页选择时向用户核实范围。"
+                  "本机链接暂停时按其路径找到本项目内的原工作台，用架构 Skill 的 scripts/workbench.py --workbench 重开。"
+                  "On-page 的 --source 指向所选版目录。\n\n"
                   + "\n\n".join(sections) + "\n" + END)
         newline = "\r\n" if "\r\n" in body else "\n"
         region = region.replace("\n", newline)

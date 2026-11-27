@@ -147,8 +147,13 @@ python3 SKILL_DIR/scripts/architecture.py --project-root "/客户建站项目" -
 根 AGENTS.md 只维护 `<!-- b2b-seo:architecture:start -->` 与 `<!-- b2b-seo:architecture:end -->` 之间的内容。每个站点、市场、语言及资料性质可有多份草案与历史版，并可选一份当前采用版。索引中的表名和原件路径相对工作台目录，AGENTS.md 的链接相对项目根目录。按实收清单归档客户材料，外部原件随包保留副本；未附入的原件在索引里标注 catalog_only。项目原件留在客户项目内。
 
 
-### 建页机会与方案选择
+### 用户选择、研究记录与方案版本
 
-`page-opportunities.csv` 和 HTML「建页机会」共用记录。可选计划数组 `page_opportunities` 每项填写 `id, title, status, reason`。待核状态 `pending`（待企业确认）和 `research`（待补研究）另写具体 `question`。取舍状态为 `page, section, filter, deferred, excluded`。前三种提供有效的 `page_id`。依据可用 `urls, keyword_ids, offering_ids, evidence_ids` 数组。每项至少关联页面或一项依据。登记过的 Top Pages URL 会带出对应市场的全部原行引用。没有逐词明细的流量页也能作为机会。关联到同一采购问题时用一条显式记录归并。生成器补出尚未处理的条件页、业务缺口、暂缓词组和无逐词明细的同行流量页。
+`page-opportunities.csv` 和 HTML「业务待核与取舍」共用记录。可选计划数组 `page_opportunities` 每项填写 `id, title, status, reason`。待核状态 `pending`（待企业确认）和 `research`（待补研究）另写具体 `question`。取舍状态为 `page, section, filter, deferred, excluded`。前三种提供有效的 `page_id`。依据可用 `urls, keyword_ids, offering_ids, evidence_ids` 数组。每项至少关联页面或一项依据。登记过的 Top Pages URL 会带出对应市场的全部原行引用。没有逐词明细的流量页也能作为机会。关联到同一采购问题时用一条显式记录归并。生成器补出尚未处理的条件页、业务缺口、暂缓词组和无逐词明细的同行流量页。
 
-新工作台默认登记为草案。只有用户选用时加 `--adopt`。根文件的 `SEO project index` 唯一指向该范围采用版，`SEO draft index` 用于指定审阅，`SEO previous index` 供回看。旧版的已有当前指针沿用。日常 On-page 和 WordPress Builder 都从当前索引开始，审阅指定版的 On-page 用该目录的 `--source`、词库及证据。页级确认独立保存在页面规划内。工作台可切换版本并对照同一范围内的页面、机会和取舍变化。用户可以移动整个项目，保留各版的相对位置和根目录的 `.seo-architecture`。只复制一个工作台时，HTML 显示独立快照。
+新工作台默认登记为草案。只有用户选用时加 `--adopt`。根文件的 `SEO project index` 唯一指向该范围采用版，`SEO draft index` 用于指定审阅，`SEO previous index` 供回看。旧版的已有当前指针沿用。日常 On-page 和 WordPress Builder 都从当前索引开始，审阅指定版的 On-page 用该目录的 `--source`、词库及证据。0.8.0 生成的逐页选择另存于本版工作台的 workbench-handoff.json。工作台可切换版本并对照同一范围内的页面、机会和取舍变化。用户可以移动整个项目，保留各版的相对位置和根目录的 `.seo-architecture`。只复制一个工作台时，HTML 显示独立快照。
+
+
+可编辑首页与设计简报读取同一份 `workbench-handoff.json`。每个方案具有唯一 `revision_id`，每行带页面 ID、网址、父页、模板、主词、相邻页、模块、业务资料缺口和 `decision`。新方案默认 `pending`。标为 `build` 才进入本轮制作或更新；`skip` 表示本次跳过。根目录登记的采用版与此选择可以分别变更。用户明确指定工作台链接时读取该版。
+
+普通 GET 返回 HTML，其中 `script#saved-page-context` 带最新清单；同一 URL 带 `Accept: application/json` 返回结构化数据。由 `resources` 查找相对于本版的原表、逐词归属、模板、字段和设计简报。编辑服务收到同源选择后持久写入项目并回执，旧窗口修改同一行时检查该页的 `decision_version`。重启后继续使用项目保存的端口。单独文件或普通静态服务器可供只读查阅。

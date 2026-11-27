@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="workbench-revision" content="__WORKBENCH_REVISION__">
+<link rel="alternate" type="application/json" title="用户确认的页面与建站、SEO 上下文" href="workbench-handoff.json">
+<script type="application/json" id="saved-page-context"></script>
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -32,15 +35,20 @@
 <body data-workbench="plan">
 <div class="app">
 <button type="button" id="nav-shade" aria-label="关闭侧边目录" hidden></button>
-<aside class="rail" id="rail" aria-label="工作台导航"><div class="brand"><span class="mark" aria-hidden="true"></span>网站架构工作台</div><button type="button" id="close-menu">关闭目录</button><nav id="nav" aria-label="工作视图"></nav><a class="rail-link" href="design.html">导航、模板与设计简报 ↗</a><footer>本地离线工作台</footer></aside>
+<aside class="rail" id="rail" aria-label="工作台导航"><div class="brand"><span class="mark" aria-hidden="true"></span>网站架构工作台</div><button type="button" id="close-menu">关闭目录</button><nav id="nav" aria-label="工作视图"></nav><a class="rail-link" href="design.html">导航、模板与设计简报 ↗</a><footer><a class="rail-link" href="workbench-handoff.json">给 Codex 的页面清单</a></footer></aside>
 <div class="desk"><header class="top"><button id="menu" type="button" aria-expanded="false" aria-controls="rail">目录</button><strong id="project"></strong><small id="status"></small></header>
 <main class="main" id="workspace">
+<noscript><p><a href="workbench-handoff.json">读取本版用户逐页确认清单</a></p><!-- saved-page-list --></noscript>
 <details id="version-panel" aria-label="架构方案版本"></details>
 <div class="head"><div><h1 id="view-title">网站架构</h1><p id="view-desc"></p></div></div>
 <div class="metric-line" id="metrics"></div>
-<section id="op-shortcut" class="op-shortcut" aria-label="待核建页机会" hidden></section>
+<section id="selection-summary" class="selection-summary" aria-label="本次页面确认">
+<div class="selection-counts"><span><b id="choice-count-build">—</b> 要建</span><span><b id="choice-count-skip">—</b> 不建</span><span><b id="choice-count-pending">—</b> 待定</span></div>
+<div class="selection-actions"><span id="choice-status" role="status"></span><button type="button" id="copy-workbench">复制工作台链接</button><input id="copy-link-text" aria-label="工作台链接" readonly hidden><a id="editable-workbench" hidden>打开可编辑工作台</a></div>
+<p id="readonly-help" hidden>当前为只读预览。请打开项目的可编辑工作台保存选择。<label id="load-choice-file" hidden>读取已保存的确认清单 <input id="choice-file" type="file" accept=".json"></label></p></section>
 <div class="tools">
 <label>查找<input id="query" type="search" placeholder="搜索当前视图"></label>
+<label id="decision-field">建页选择<select id="decision-filter"><option value="">全部页面</option><option value="build">要建</option><option value="skip">不建</option><option value="pending">待定</option></select></label>
 <label id="priority-field" hidden>规划优先级<select id="priority"><option value="">全部优先级</option></select></label>
 <label id="page-field">页面范围<select id="page"></select></label>
 <label id="term-field" hidden>词组长度<select id="term-length"><option value="0">全部</option><option value="1">单词</option><option value="2">连续两词</option><option value="3">连续三词</option></select></label>
@@ -52,10 +60,12 @@
 </main></div></div>
 <script type="application/json" id="architecture-data">__ARCHITECTURE_DATA__</script>
 <script type="application/json" id="search-data">__SEARCH_PLAN__</script>
+<script src="workbench-open.js"></script>
 <script src="workbench-context.js"></script>
 <script>
 'use strict';
 /* __VERSION_PANEL__ */
+/* __PAGE_CONFIRMATION__ */
 const data = JSON.parse(document.getElementById('search-data').textContent);
 function unpack(fields, rows) {
   return rows.map(cells => { const item={}; fields.forEach((field,i)=>{item[field]=cells[i];}); return item; });
@@ -84,11 +94,11 @@ const title = key => labels[key] || key || '待补';
 const primaryName = row => /^en(?:[-_]|$)/i.test(data.project.language) && row.name_en ? row.name_en : row.name;
 const pageName = row => row ? [...new Set([primaryName(row),row.name_zh].filter(Boolean))].join(' · ') : '';
 /* __OPPORTUNITIES__ */
-const modes = {opportunities:'建页机会',overview:'网站页面规划表',pages:'架构树与单页简报',groups:'商业页面拆并',coverage:'意图覆盖',decisions:'整理后词库',terms:'词频与词组',
+const modes = {opportunities:'业务待核与取舍',overview:'网站页面规划表',pages:'架构树与单页简报',groups:'商业页面拆并',coverage:'意图覆盖',decisions:'整理后词库',terms:'词频与词组',
   intents:'整句与采购意图',values:'属性与取值',inputs:'原始数据表',sites:'竞品站点',urls:'竞品流量与排名页',prices:'商品报价'};
-const sections = {'页面规划':['overview','opportunities','pages','groups','coverage'],'词库分析':['decisions','terms','intents','values'],
-  '输入与竞品':['inputs','sites','urls','prices']};
-const captions = {opportunities:'展开一项机会，核对采购需求、企业供货范围和竞品依据，再决定是否单独建页。',overview:'选中页面名称，核对它要回答的采购问题、已分配的词和需要补的资料。',pages:'按父子层级查看每页的采购任务、关键词和内容模块。',groups:'比较同一取值的不同采购任务，以及每组词的拆并依据。',
+const sections = {'页面规划':['overview','pages','groups','coverage'],'词库分析':['decisions','terms','intents','values'],
+  '输入与竞品':['opportunities','inputs','sites','urls','prices']};
+const captions = {opportunities:'查看拆并理由、企业需要补齐的资料和竞品原始记录。',overview:'逐页选择要建或不建，暂时拿不准的留为待定。复制工作台链接给 Codex，即可按已选页面建站或更新内容。',pages:'按父子层级查看每页的采购任务、关键词和内容模块。',groups:'比较同一取值的不同采购任务，以及每组词的拆并依据。',
   coverage:'按来源、市场和语言核对完整承接、部分承接及尚待处理的需求。',decisions:'每行是同一市场、语言中的一个查询。点击原词可看分词、原始记录及页面归属。',
   terms:'单词和连续两至三词按不同查询数排序。点击词组可展开全部原句。',intents:'从完整查询判断买家要完成的事，再查看同组的全部表达。',
   values:'维度用成员并集计数。选择一个取值可查看全部成员。',inputs:'查看收到的文件、原始行与下载入口。',
@@ -118,6 +128,7 @@ function action(label, handler) {
   const b = node('button',label); b.type = 'button'; b.addEventListener('click',handler); return b;
 }
 function reset(view) {
+  byId('decision-filter').value='';
   opportunityFilter='all';opportunityId='';
   mode = view; selectedIntent='';selectedTerm=null;selectedSite='';sourceId='';sourceRow=1;activePage='';locale='';byId('locale').value=''; selectedPage = ''; selectedValue = ''; selectedPlan = ''; selectedDimension = null; selectedWord = ''; offset = 0;
   selectedUrl='';byId('query').value = ''; byId('page').value = ''; byId('priority').value = '';
@@ -143,6 +154,7 @@ function priceCard(box,row) {
 }
 function renderPage(box,p) {
   box.append(node('h2',pageName(p)),node('p',[p.id,title(p.page_type),p.url].join(' · '),'meta'));
+  const choice=node('div','','field');choice.append(node('strong','本次是否建页'),pageChoices.controls(p.id));box.append(choice);
   if(p.primary_keyword)box.append(chip('主词 · '+p.primary_keyword));
   line(box,'页面职责',p.objective); line(box,'页面安排',[title(p.page_action),title(p.approval),p.priority].filter(Boolean).join(' · '));line(box,'优先理由',p.priority_reason);
   line(box,'拆并依据',p.rationale); line(box,'相邻页边界',[p.boundary,...p.adjacent_page_ids.map(id=>id+' '+pageName(pageById.get(id)))].filter(Boolean));
@@ -242,6 +254,7 @@ function navigate(replace=false) {
   const h=new URLSearchParams({view:mode});
   if(mode==='opportunities'){h.set('status',opportunityFilter);if(opportunityId)h.set('item',opportunityId);if(byId('query').value)h.set('q',byId('query').value);}
   if(mode==='overview') {
+    if(byId('decision-filter').value)h.set('decision',byId('decision-filter').value);
     if(byId('priority').value)h.set('priority',byId('priority').value);
     if(byId('query').value)h.set('q',byId('query').value);
   }
@@ -259,7 +272,7 @@ function restore() {
   const h=new URLSearchParams(location.hash.slice(1)),v=h.get('view');
   reset(Object.hasOwn(modes,v)?v:'overview');
   if(mode==='opportunities'){opportunityFilter=Object.hasOwn(opportunityFilters,h.get('status'))?h.get('status'):'all';opportunityId=h.get('item')||'';byId('query').value=h.get('q')||'';}
-  if(mode==='overview'){byId('query').value=h.get('q')||'';byId('priority').value=h.get('priority')||'';}
+  if(mode==='overview'){byId('decision-filter').value=h.get('decision')||'';byId('query').value=h.get('q')||'';byId('priority').value=h.get('priority')||'';}
   if(mode==='pages')revealPage(h.get('page')||'');else selectedPage=h.get('page')||'';
   selectedWord=h.get('word')||'';selectedIntent=h.get('intent')||'';selectedValue=h.get('value')||'';selectedPlan=h.get('plan')||'';
   selectedSite=h.get('site')||'';selectedUrl=mode==='urls'?(h.get('url')||''):'';sourceId=h.get('file')||'';sourceRow=Math.max(1,Number(h.get('row'))||1);
@@ -361,7 +374,7 @@ function renderInputList(box,rows){
   })));
 }
 function planningTable(box,items) {
-  const headers=['页面和所属栏目','分到本页的词','页面职责','计划安排'];
+  const headers=['页面和所属栏目','分到本页的词','页面职责','本次是否建页'];
   const rows=items.map(p=>{
     const name=node('div'), parent=pageById.get(p.parent_id);
     name.append(cellButton(pageName(p),()=>openPage(p.id)),node('small',parent?'上级 · '+pageName(parent):'顶层页面'));
@@ -373,8 +386,8 @@ function planningTable(box,items) {
     if(words.length)terms.append(cellButton('查看全部 '+words.length+' 个词',()=>openWords({page:p.id})));
     else terms.append(node('small','暂无已分配词'));
     const status=node('div');
-    status.append(chip(title(p.approval)),node('small',[p.page_action && title(p.page_action),p.priority].filter(Boolean).join(' · ')));
-    if(p.priority_reason && p.priority_reason!==p.objective)status.append(node('small',p.priority_reason));
+    status.className='decision-cell';status.append(pageChoices.controls(p.id),node('small',[p.page_action && title(p.page_action),p.priority].filter(Boolean).join(' · ')));
+    if(p.state==='conditional')name.append(node('small','备选页 · 业务资料待核'));
     return [name,terms,p.objective,status];
   });
   const table=tableBox(headers,rows);
@@ -395,14 +408,14 @@ function pageHandoff(box,p) {
   const task=node('textarea');
   task.readOnly=true;task.setAttribute('aria-label','本页 On-page 指令');
   const sentences=[
-    '请用 $b2b-seo-onpage 优化「'+pageName(p)+'」'+(p.url?'（'+p.url+'）':'')+'。',
+    '请用 $b2b-seo-onpage 读取「'+pageName(p)+'」'+(p.url?'（'+p.url+'）':'')+'。',
     '站点 '+data.project.site_url+'，市场和语言 '+data.project.market+' / '+data.project.language+'。'+(data.project.mode==='simulation'?'本次使用模拟资料。':''),
-    handoffSource(),
+    pageChoices.note(p.id),handoffSource(),
     '沿用页面规划、分组、行业词库及公司资料。核对同类竞品的具体排名 URL 和 Top Pages，保留相邻页的关键词归属。',
-    '请交付页面稿（Title、H1、Subtitle、H2 和正文）及关键词位置表，标出待核的企业事实。'
+    '最新选择为「要建」时，请交付 Title、H1、Subtitle、H2、正文及关键词位置表，标出待核的企业事实。'
   ];
   if(p.primary_keyword)sentences.splice(2,0,'本页规划主词为 '+p.primary_keyword+'。');
-  if(p.approval!=='confirmed')sentences.push('当前页面规划尚待确认，请在稿件中保留这个状态。');
+  if(p.approval!=='confirmed')sentences.push('规划稿仍标记为提案，企业资料以最新核实结果为准。');
   task.value=sentences.join('\n');panel.append(task);
   const controls=node('div','','page-actions'),status=node('span','','muted');
   status.setAttribute('role','status');
@@ -446,7 +459,7 @@ function downloadPageWords(page) {
   document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function requireData(mode){
-  return ({opportunities:'此范围内没有建页机会。',inputs:'附上本轮原始表或资料清单后，可在这里回查原行。',prices:'本轮输入没有商品报价记录。',
+  return ({opportunities:'此范围内没有相关研究记录。',inputs:'附上本轮原始表或资料清单后，可在这里回查原行。',prices:'本轮输入没有商品报价记录。',
     urls:'本轮输入没有对应的流量或排名快照。',sites:'本轮未提供竞品名单。'})[mode]||'当前范围没有匹配记录。';
 }
 function tableView(box,items) {
@@ -488,7 +501,8 @@ function draw() {
     const selected=b.dataset.mode===mode;b.setAttribute('aria-pressed',String(selected));
     if(selected)b.parentElement.open=true;
   }
-  opportunityOverview();
+  byId('selection-summary').hidden=!['overview','pages'].includes(mode);pageChoices.summary();
+  byId('decision-field').hidden=mode!=='overview';
   byId('view-title').textContent=modes[mode];byId('view-desc').textContent=captions[mode];
   byId('page-field').hidden=!scopeModes.has(mode);byId('term-field').hidden=mode!=='terms';
   byId('locale-field').hidden=!['terms','intents','values','coverage','decisions','groups','prices','urls'].includes(mode);
@@ -508,6 +522,7 @@ function draw() {
       return !q||[r.title,r.question,r.reason,...r.urls,...r.keyword_ids.map(k=>wordById.get(k)?.keyword)].join(' ').toLowerCase().includes(q);
     }
     if(mode==='overview'){
+      if(byId('decision-filter').value && pageChoices.decision(r.id)!==byId('decision-filter').value)return false;
       if(byId('priority').value && r.priority!==byId('priority').value)return false;
       return !q || [pageName(r),r.url,r.primary_keyword,r.id].join(' ').toLowerCase().includes(q)
         || (wordsByPage.get(r.id)||[]).some(w=>w.keyword.toLowerCase().includes(q));
@@ -581,6 +596,7 @@ byId('page').addEventListener('change',e=>{selectedPage=e.target.value;offset=0;
 byId('locale').addEventListener('change',e=>{locale=e.target.value;offset=0;navigate(true);});
 byId('term-length').addEventListener('change',()=>{offset=0;draw()});
 for(const priority of new Set(data.overview.map(p=>p.priority).filter(Boolean)))byId('priority').append(new Option(priority,priority));
+byId('decision-filter').addEventListener('change',()=>{offset=0;navigate(true);});
 byId('priority').addEventListener('change',()=>{offset=0;navigate(true);});
 byId('query').addEventListener('input',()=>{offset=0;if(mode==='overview'||mode==='opportunities')navigate(true);else draw();});
 byId('prev').addEventListener('click',()=>{opportunityId='';offset=Math.max(0,offset-size);draw()});
@@ -605,10 +621,11 @@ document.addEventListener('keydown',e=>{
   }
 });
 for(const [name,label] of Object.entries({'clean-keywords':'整理后原词库','words-and-phrases':'全量词频与词组','intent-groups':'整句意图组',
-  'pages':'页面规划','page-opportunities':'建页机会','keyword-decisions':'逐词归属','commercial-planning':'商业页面拆并','demand-coverage':'覆盖统计','dimension-values':'属性与取值',
+  'pages':'页面规划','page-opportunities':'业务待核与拆并取舍','keyword-decisions':'逐词归属','commercial-planning':'商业页面拆并','demand-coverage':'覆盖统计','dimension-values':'属性与取值',
   'content-modules':'内容模块','received-rankings':'收到的排名','comparable-pages':'同类竞品依据','price-observations':'商品价格','input-files':'来源目录'})){
   const a=node('a',label);a.href=name+'.csv';a.download='';byId('files').append(a);
 }
+document.addEventListener('workbench-choice-update',()=>{if(mode==='overview'||mode==='pages')draw();});
 document.addEventListener('architecture-version-ready',()=>{if(mode==='pages')draw();});
 window.addEventListener('popstate',restore);restore();
 </script>
