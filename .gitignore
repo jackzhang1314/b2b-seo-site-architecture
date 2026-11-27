@@ -8,6 +8,7 @@
 /docs/*
 !/docs/PUBLISHING.md
 !/docs/architecture-example.png
+!/docs/workbench-example.png
 !/skills/
 /skills/*
 !/skills/b2b-seo-site-architecture/

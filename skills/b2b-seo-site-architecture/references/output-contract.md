@@ -102,8 +102,9 @@ application详情归application_hub集合页；主导航中的详情通过可点
 
 | 产物 | 用途 |
 | --- | --- |
-| index.html | 主视图为核心架构、完整页面设计简报、模板、导航、独立文章计划；词频、明细和研究证据按需展开。可复制单页设计任务并打开本地Markdown。离线可读，不依赖外部脚本 |
-| design.html | 导航、模板及可复制设计任务；主入口 index.html 提供架构树、全量词库、词频、语句意图、原始表、竞品与价格 |
+| index.html | 在离线工作台查看架构树、页面与模块、词频词组、整句意图、属性取值、清理后的词库、原件、竞品流量及报价。可从具体查询或整页流量回到原始记录 |
+| design.html | 查阅导航、页面设计简报、模板、产品字段与按约定生成的文章计划，可复制单页设计任务 |
+| clean-keywords.csv / words-and-phrases.csv / intent-groups.csv / input-files.csv | 整理后的完整词库、同市场与语言的词频、整句意图组及原件目录 |
 | commercial-planning.csv / dimension-values.csv / demand-coverage.csv | 属性取值、意图、拆并理由、指标与覆盖口径 |
 | content-modules.csv / comparable-pages.csv | 逐页模块内容、买家问题、成员词和实访可比理由 |
 | received-rankings.csv / price-observations.csv | 所选导出中的逐次排名和商品报价原文、条件与出处 |
