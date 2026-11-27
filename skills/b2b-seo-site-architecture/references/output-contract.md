@@ -22,7 +22,7 @@
 ## 生成与检查
 
 ```sh
-python3 SKILL_DIR/scripts/architecture.py --plan /绝对路径/architecture-plan.json --keywords /绝对路径/industry-keywords.csv --analysis-dir /绝对路径/本轮runs目录 --out /绝对路径/新成果目录
+python3 SKILL_DIR/scripts/architecture.py --plan /绝对路径/architecture-plan.json --keywords /绝对路径/industry-keywords.csv --analysis-dir /绝对路径/本轮runs目录 --project-root /客户建站项目 --out /客户建站项目/docs/seo/本次新成果目录
 ```
 
 Python 3.11+、仅标准库。所有输出写新目录。脚本不访问网页、不调用模型、不替代页面或模板决策。
@@ -132,3 +132,14 @@ CSV供程序继续处理；用户优先看HTML表格，避免表格软件把外�
 ## 校验边界
 
 检查树循环、重复页面/URL、失效父级和菜单目标、文章混入全站菜单、模板及代表页、逐词覆盖、主词归属、市场与来源引用、模拟标注和未确认业务进入菜单。0.4.0另核英文主名称/中文辅助、应用集合层级与可点击导航、属性字段类型与引用、真实值缺失时不能启用筛选。结构检查不证明来源真实、语义正确、竞品全量完成或视觉设计已经完成。0.3.0及0.4.0数据结构下，`research_complete`还要求已登记的本轮核心URL全部真实观察完成；旧0.1.0/0.2.0沿用名单代表结构实访口径。均不自动代表每条排名URL都已回读，须结合目标清单、接收记录与逐页实访记录说明实际覆盖。
+
+
+## 现有工作台和新会话
+
+v0.5.x 已交付的完整工作台可直接登记，无需重新跑大词库。若生成后写项目入口遇到冲突，也可重试同一命令。
+
+```bash
+python3 SKILL_DIR/scripts/architecture.py --project-root "/客户建站项目" --register-existing "/客户建站项目/docs/seo/本次成果"
+```
+
+根 AGENTS.md 只维护 `<!-- b2b-seo:architecture:start -->` 与 `<!-- b2b-seo:architecture:end -->` 之间的内容。每个站点、市场、语言及资料性质（真实或模拟）对应一个当前工作台。更新同一范围的指针时，旧目录和其他范围的登记仍可使用。索引中的表名和原件路径相对工作台目录，AGENTS.md 的链接相对项目根目录。按实收清单归档客户材料，外部原件随包保留副本；未附入的原件在索引里标注 catalog_only。项目原件留在客户项目内。

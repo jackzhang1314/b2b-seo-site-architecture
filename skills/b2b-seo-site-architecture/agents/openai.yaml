@@ -1,4 +1,4 @@
 interface:
   display_name: "B2B 网站页面架构规划"
   short_description: "从大词库、竞品页面和报价规划商业页面、逐词归属及内容模块"
-  default_prompt: "使用 $b2b-seo-site-architecture，根据我的工厂资料和目标市场盘点同一文件夹里的核心词或拓词表、B2B 同行名单、各站排名前 30 名的关键词与 URL、各站 Top Pages。缺名单请先找同行，缺导出请指导我操作。经我授权，可用 Computer Use 在 Semrush 或 Ahrefs 网页代办。规划每个词的承接页、模块和拆并理由，说明应用集合层级、类目筛选及详情字段，按约定确定博客范围。交付英文为主、中文辅助的架构、设计简报、离线 HTML 工作台与全量 CSV。"
+  default_prompt: "使用 $b2b-seo-site-architecture，根据我的工厂资料和目标市场盘点同一文件夹里的核心词或拓词表、B2B 同行名单、各站排名前 30 名的关键词与 URL、各站 Top Pages。缺名单请先找同行，缺导出请指导我操作。经我授权，可用 Computer Use 在 Semrush 或 Ahrefs 网页代办。规划每个词的承接页、模块和拆并理由，说明应用集合层级、类目筛选及详情字段，按约定确定博客范围。交付英文为主、中文辅助的架构、设计简报、离线 HTML 工作台与全量 CSV。在建站项目的 AGENTS.md 登记工作台、清洗表和原件，供后续 SEO 与建站复用。"
