@@ -1,19 +1,19 @@
 """Durable, revision-specific user decisions and the context shared with website builders."""
 from __future__ import annotations
 
-import csv
 import json
-from datetime import datetime, timezone
+from collections.abc import Callable
+from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 
 from plan_records import Row, obj, records, text
 from register_project import FILES, atomic_write, project_lock
-from seo_project import local_file
+from revisions import read_delivery_rows
+from seo_project import local_file, project_for
+from workbench_events import DECISIONS, SCHEMA, SEO_CHOICES, derive_progress, normalize_handoff as normalize_handoff, utc_now
 
 FILENAME = "workbench-handoff.json"
-SCHEMA = "b2b-seo-workbench-handoff/1"
-DECISIONS = ("pending", "build", "skip")
 
 
 class DecisionConflict(ValueError):
@@ -31,11 +31,9 @@ def create_handoff(folder: Path, project: Row) -> None:
     lists = ("adjacent_page_ids", "module_ids", "comparable_urls", "fact_gaps")
     pages: list[Row] = []
     # Article topics have a separate content plan. Only real, planned core URLs appear in the confirmation table.
-    with local_file(folder, "pages.csv").open(encoding="utf-8-sig", newline="") as stream:
-        for row in csv.DictReader(stream):
-            pages.append({**{k: row.get(k, "") for k in fields}, **{k: (row.get(k) or "").splitlines() for k in lists},
-                          "decision": "pending",
-                          "decision_version": 0, "decided_at": None})
+    for row in read_delivery_rows(local_file(folder, "pages.csv")):
+        pages.append({**{k: row.get(k, "") for k in fields}, **{k: (row.get(k) or "").splitlines() for k in lists},
+                      "decision": "pending", "decision_version": 0, "decided_at": None})
     ids = [p["id"] for p in pages]
     if not ids or not all(ids) or len(set(ids)) != len(ids):
         raise ValueError("Expected unique planned page IDs")
@@ -53,7 +51,7 @@ def create_handoff(folder: Path, project: Row) -> None:
         },
         "resources": resources, "pages": pages,
     }
-    atomic_write(path, encode(handoff), None)
+    atomic_write(path, encode(normalize_handoff(handoff)), None)
     marker = 'name="workbench-revision" content="__WORKBENCH_REVISION__"'
     for name in ("index.html", "design.html"):
         view = folder / name
@@ -70,38 +68,70 @@ def create_handoff(folder: Path, project: Row) -> None:
 
 
 def read_handoff(folder: Path) -> Row:
-    value = obj(json.loads(local_file(folder, FILENAME).read_bytes()))
-    if value.get("schema") != SCHEMA or not isinstance(value.get("revision_id"), str):
-        raise ValueError("Invalid workbench handoff")
-    return value
+    return normalize_handoff(obj(json.loads(local_file(folder, FILENAME).read_bytes())))
+
+
+def mutate_handoff(folder: Path, revision_id: str, page_id: str,
+                   update: Callable[[Row], bool]) -> tuple[Row, bool]:
+    """Synchronize authoritative page data and the project entry under the same writer lock."""
+    from register_project import sync_entry_locked
+
+    folder = folder.resolve()
+    root = project_for(folder) or folder
+    with ExitStack() as locks:
+        locks.enter_context(project_lock(root))
+        if root != folder:
+            locks.enter_context(project_lock(folder))
+        path = local_file(folder, FILENAME)
+        previous = path.read_bytes()
+        data = normalize_handoff(obj(json.loads(previous)))
+        if revision_id != data["revision_id"]:
+            raise DecisionConflict("此版本已变化，请读取原工作台后重试。")
+        pages = records(data, "pages")
+        page = next((row for row in pages if row["id"] == page_id), None)
+        if page is None:
+            raise ValueError("Unknown page ID")
+        changed = update(page)
+        if changed:
+            count = data["change_number"]
+            if type(count) is not int:
+                raise ValueError("Invalid stored change number")
+            derive_progress(page)
+            data.update(pages=pages, change_number=count + 1, updated_at=utc_now())
+        content = encode(data)
+        atomic_write(path, content, previous)
+        try:
+            if root != folder:
+                sync_entry_locked(root, folder, data)
+        except (OSError, ValueError, KeyError):
+            if content != previous:
+                atomic_write(path, previous, content)
+            raise
+        return data, changed
 
 
 def change_page(folder: Path, request: Row) -> Row:
-    if set(request) != {"revision_id", "page_id", "expected_version", "decision"}:
-        raise ValueError("Provide revision_id, page_id, expected_version and decision")
-    page_id, decision = text(request, "page_id"), text(request, "decision")
+    field = "seo_decision" if "seo_decision" in request else "decision"
+    if set(request) != {"revision_id", "page_id", "expected_version", field}:
+        raise ValueError("Provide revision_id, page_id, expected_version and one user choice")
+    page_id, choice = text(request, "page_id"), text(request, field)
     version = request["expected_version"]
-    if decision not in DECISIONS or type(version) is not int or version < 0:
-        raise ValueError("Invalid page decision or version")
-    with project_lock(folder):
-        path = local_file(folder, FILENAME)
-        previous = path.read_bytes()
-        data = obj(json.loads(previous))
-        if data.get("schema") != SCHEMA or text(request, "revision_id") != data.get("revision_id"):
-            raise DecisionConflict("此工作台版本已变化，请重新打开后确认。")
-        pages = records(data, "pages")
-        page = next((p for p in pages if p["id"] == page_id), None)
-        if page is None:
-            raise ValueError("Unknown page ID")
-        if page["decision"] == decision:
-            return data
-        if page["decision_version"] != version:
-            raise DecisionConflict("这页的选择已在另一个窗口更新，请核对最新状态后再选。")
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        page.update(decision=decision, decision_version=version + 1, decided_at=now)
-        count = data["change_number"]
-        if type(count) is not int:
-            raise ValueError("Invalid stored change number")
-        data.update(pages=pages, change_number=count + 1, updated_at=now)
-        atomic_write(path, encode(data), previous)
-        return data
+    allowed = SEO_CHOICES if field == "seo_decision" else DECISIONS
+    if choice not in allowed or type(version) is not int or version < 0:
+        raise ValueError("Invalid user choice or version")
+    counter, date = ("seo_version", "seo_decided_at") if field == "seo_decision" else ("decision_version", "decided_at")
+    revision = text(request, "revision_id")
+
+    def select(page: Row) -> bool:
+        if page[field] == choice:
+            return False
+        if page[counter] != version:
+            raise DecisionConflict("该选择已在另一窗口更新，请核对最新状态后再选。")
+        now = utc_now()
+        choices = records(page, "choice_history")
+        choices.append({"field": field, "value": choice, "at": now, "version": version + 1,
+                        "origin_revision_id": revision})
+        page.update({field: choice, counter: version + 1, date: now, "choice_history": choices})
+        return True
+
+    return mutate_handoff(folder, revision, page_id, select)[0]

@@ -57,3 +57,9 @@
 !/skills/b2b-seo-site-architecture/scripts/page_confirmation.py
 !/skills/b2b-seo-site-architecture/scripts/workbench.py
 !/skills/b2b-seo-site-architecture/assets/page-confirmation.js
+!/skills/b2b-seo-site-architecture/scripts/workbench_events.py
+!/skills/b2b-seo-site-architecture/scripts/workbench_progress.py
+!/skills/b2b-seo-site-architecture/scripts/workbench_update.py
+!/skills/b2b-seo-site-architecture/scripts/workbench_entry.py
+!/skills/b2b-seo-site-architecture/scripts/workbench_upgrade.py
+!/skills/b2b-seo-site-architecture/scripts/update_inputs.py

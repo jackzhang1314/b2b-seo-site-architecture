@@ -154,6 +154,44 @@ python3 SKILL_DIR/scripts/architecture.py --project-root "/客户建站项目" -
 新工作台默认登记为草案。只有用户选用时加 `--adopt`。根文件的 `SEO project index` 唯一指向该范围采用版，`SEO draft index` 用于指定审阅，`SEO previous index` 供回看。旧版的已有当前指针沿用。日常 On-page 和 WordPress Builder 都从当前索引开始，审阅指定版的 On-page 用该目录的 `--source`、词库及证据。0.8.0 生成的逐页选择另存于本版工作台的 workbench-handoff.json。工作台可切换版本并对照同一范围内的页面、机会和取舍变化。用户可以移动整个项目，保留各版的相对位置和根目录的 `.seo-architecture`。只复制一个工作台时，HTML 显示独立快照。
 
 
-可编辑首页与设计简报读取同一份 `workbench-handoff.json`。每个方案具有唯一 `revision_id`，每行带页面 ID、网址、父页、模板、主词、相邻页、模块、业务资料缺口和 `decision`。新方案默认 `pending`。标为 `build` 才进入本轮制作或更新；`skip` 表示本次跳过。根目录登记的采用版与此选择可以分别变更。用户明确指定工作台链接时读取该版。
+可编辑首页与设计简报读取同一份 `workbench-handoff.json`。每个方案具有唯一 `revision_id`，每行带页面 ID、网址、父页、模板、主词、相邻页、模块、业务资料缺口和 `decision`。新方案默认 `pending`。标为 `build` 才进入本轮建页队列，SEO 另行排期。`skip` 表示本次跳过。根目录登记的采用版与此选择可以分别变更。用户明确指定工作台链接时读取该版。
 
 普通 GET 返回 HTML，其中 `script#saved-page-context` 带最新清单；同一 URL 带 `Accept: application/json` 返回结构化数据。由 `resources` 查找相对于本版的原表、逐词归属、模板、字段和设计简报。编辑服务收到同源选择后持久写入项目并回执，旧窗口修改同一行时检查该页的 `decision_version`。重启后继续使用项目保存的端口。单独文件或普通静态服务器可供只读查阅。
+
+
+### 工作进度回写
+
+各版沿用 `b2b-seo-workbench-handoff/1`，增加 `workflow_version: 1`。项目 AGENTS.md 的 SEO 区中，每版的 H3 给出指针和当前摘要。以对应目录里的 `workbench-handoff.json` 为完整记录。每次 GUI 保存或执行工具提交回执，同时刷新该版本的摘要。只读旧 0.8 数据时沿用其实际建页选择，缺少记录的轨道初始显示暂无回执。
+
+| 问题 | 逐页字段 | 使用者 |
+| --- | --- | --- |
+| 用户这轮决定建哪些页 | `decision` 为 build、skip、pending | Builder 建页队列 |
+| 哪些页可以开始优化 | `seo_decision` 为 requested、hold；`seo_eligible` 为可执行判断 | On-page SEO 队列 |
+| 实际建页进度 | `progress.build.status` 为 not_started、built 或 published | 已有页面、保存回读、发布回读 |
+| 实际优化进度 | `progress.onpage.status` 为 not_started、optimized 或 published | 已验收优化稿、已核对发布内容 |
+| 某次完成了什么 | `history[]` 包含 track、status、event_id、origin_revision_id、occurred_at、summary、evidence | 逐页工作明细，含日期和依据 |
+
+```sh
+python3 SKILL_DIR/scripts/workbench_progress.py resolve --project-root SITE --queue build
+python3 SKILL_DIR/scripts/workbench_progress.py resolve --project-root SITE --queue onpage
+python3 SKILL_DIR/scripts/workbench_progress.py record --workbench WORKBENCH --revision-id REVISION --page-id M04 --track build --status built --event-id wp-42-save-16 --evidence docs/receipts/wp-42-save-16.json --summary "2 吨系列页已保存并读回"
+```
+
+结果记录使用执行时捕获的 `revision_id` 和 `page_id`。执行方负责核对实际的目标站、页面、内容与发布状态，证据可以是保存在项目内的回读记录或核验过的目标网址。无页级证据的整站部署只保留整站结果。请求重试沿用事件编号、原始发生时间及原始摘要；同一编号且相同内容只计一次，内容冲突报错。迟到的回执按 `--occurred-at`（带时区的 ISO 8601）归位。最近一次公开发布的时间另存为 `last_published_at`。已发布后再做的优化稿会显示为新的优化记录。用户选择只对未来工作作安排，过往的实际操作仍有记录。
+
+GUI 只提交 `decision` 或 `seo_decision` 之一，并传该字段的 `expected_version`。选择和排期使用独立版本号；切换版本或同一选择在别处改变时，编辑端重新取得当前值。后续工具只通过共同记录入口写回。用户态服务沿用项目端口，数据存放在项目内，可随整个建站项目移动。
+
+### 收到补充资料后修订
+
+1. 从采用版的资料清单找回原件及原有列映射。给新收到的文件另分来源编号，保留各自观察日期。
+2. 用下面的第一条命令生成合并后的输入清单。按原分析步骤重跑完整词库、逐词和整页竞品数据、词频及意图分组。把改变的词组、页面职责和依据落实到修订计划中。
+3. 用第二条命令在项目里生成新草案。逐页核对新词、改址、页型变化、移除项和企业待核事项。同范围、同页号、同网址且页型相同的页面可继承用户决定和已发生的工作。改过规划的页会标明变更，历史回执带原版编号。用户选定后再采用草案。
+
+```sh
+python3 SKILL_DIR/scripts/architecture.py --prepare-update BASE --keyword-sources NEW_KEYWORDS.json --ranking-sources NEW_PEERS.json --out INTAKE
+python3 SKILL_DIR/scripts/architecture.py --plan REVISED_PLAN.json --keywords ANALYSIS/library/keywords.csv --analysis-dir ANALYSIS --materials INTAKE/materials.json --update-from BASE --project-root SITE --out DRAFT
+```
+
+只收到一种新增资料时使用对应的来源参数即可。用 `INTAKE/keyword-sources.json` 运行词库合表，用 `INTAKE/ranking-sources.json` 处理竞品数据。基线已收到新的选择或回执时，重新从最新基线生成草案再采用。
+
+已有标准 0.8.0 工作台可用 `architecture.py --upgrade-workbench WORKBENCH --project-root SITE` 升级原网址。该命令保留原版号、研究数据和选择，并就地备份原文件。重开本机工作台后核对页数、此前的选择和项目 H3。

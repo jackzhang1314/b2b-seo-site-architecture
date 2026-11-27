@@ -5,18 +5,22 @@ import csv
 import json
 import os
 import sys
-from contextlib import contextmanager
+from codecs import BOM_UTF8
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Iterator
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
-from seo_project import (
-    END, INDEX, KIND, START, WP_END, WP_START, block_range, identity, local_file, project_for,
-)
+from plan_records import Row
 from revisions import ROLES, RolePaths, catalogue, read_revisions
+from seo_project import END, INDEX, KIND, START, identity, local_file, project_for
+from workbench_entry import (
+    HANDOFF, ROLE_TITLES, heading, managed_bounds, project_link, registered_handoff, require_registered_owner,
+    resolve_workbench as resolve_workbench, status_summary, updated_status,
+)
 
-FILES = {"handoff": "workbench-handoff.json", "workbench": "index.html", "plan": "architecture-plan.json", "pages": "pages.csv",
+FILES = {"handoff": HANDOFF, "workbench": "index.html", "plan": "architecture-plan.json", "pages": "pages.csv",
          "library": "clean-keywords.csv", "decisions": "keyword-decisions.csv", "rankings": "received-rankings.csv",
          "top_pages": "page-traffic-observations.csv", "comparables": "comparable-pages.csv",
          "planning": "commercial-planning.csv", "intents": "intent-groups.csv", "frequency": "words-and-phrases.csv",
@@ -34,6 +38,8 @@ def atomic_write(path: Path, data: bytes, previous: bytes | None) -> None:
     if path.is_symlink():
         raise ValueError(f"Refusing a symlink as a project entry: {path}")
     if previous == data:
+        if (path.read_bytes() if path.exists() else None) != previous:
+            raise ValueError(f"{path.name} changed concurrently; retry from the latest file")
         return
     with NamedTemporaryFile(dir=path.parent, prefix=".seo-entry-", delete=False) as stream:
         temporary = Path(stream.name)
@@ -47,8 +53,8 @@ def atomic_write(path: Path, data: bytes, previous: bytes | None) -> None:
     try:
         if path.exists():
             temporary.chmod(path.stat().st_mode & 0o777)
-        if (path.read_bytes() if path.exists() else None) != previous:
-            raise ValueError(f"{path.name} changed during registration; retry using --register-existing")
+        if path.is_symlink() or (path.read_bytes() if path.exists() else None) != previous:
+            raise ValueError(f"{path.name} changed concurrently; retry from the latest file")
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
@@ -83,6 +89,25 @@ def project_lock(root: Path) -> Iterator[None]:
             os.close(fd)
 
 
+def sync_entry_locked(root: Path, folder: Path, handoff: Row) -> None:
+    """Refresh one registered H3 under the caller's root lock. Standalone workbenches have no entry."""
+    root, folder = root.resolve(), folder.resolve()
+    if root == folder:
+        return
+    if not folder.is_relative_to(root):
+        raise ValueError("The workbench is outside the website project")
+    agents = root / "AGENTS.md"
+    if agents.is_symlink():
+        raise ValueError("Expected a regular project entry")
+    if not agents.exists():
+        return
+    previous = agents.read_bytes()
+    body = previous.decode("utf-8-sig")
+    result = updated_status(body, root, folder, handoff)
+    data = (BOM_UTF8 if previous.startswith(BOM_UTF8) else b"") + result.encode()
+    atomic_write(agents, data, previous)
+
+
 def inventory(directory: Path) -> dict[str, object]:
     project = json.loads(local_file(directory, FILES["plan"]).read_bytes())["project"]
     validation = json.loads(local_file(directory, FILES["validation"]).read_bytes())
@@ -111,15 +136,17 @@ def inventory(directory: Path) -> dict[str, object]:
 
 def render_entry(root: Path, index_path: Path, entry: dict[str, object], role: str) -> str:
     folder = index_path.parent
+
     def link(label: str, path: Path) -> str:
-        return f"[{label}](<{quote(path.relative_to(root).as_posix(), safe='/.-_~')}>)"
-    # Use fixed labels; data values may include Markdown or control characters.
-    scope = " · ".join(" ".join(str(entry[k]).split()) for k in ("site_url", "market", "language", "mode"))
+        return project_link(root, label, path)
+
     role_paths = entry["files"]
     if not isinstance(role_paths, dict):
         raise ValueError("Invalid SEO files inventory")
-    label = {"adopted": "当前采用", "draft": "新草案", "previous": "历史采用"}[role]
-    rows = [f"### {scope} · {label}", "- " + ROLES[role] + ": " + link(label + "的架构索引", index_path)]
+    label = ROLE_TITLES[role]
+    handoff = registered_handoff(folder, entry) if "handoff" in role_paths else None
+    rows = [heading(entry, folder, role), "- " + ROLES[role] + ": " + link(label + "的架构索引", index_path),
+            status_summary(root, folder, handoff)]
     if role != "adopted":
         rows.append("- " + link(label + "的工作台", local_file(folder, role_paths["workbench"])))
         if "handoff" in role_paths:
@@ -150,13 +177,13 @@ def register(root: Path, directory: Path, *, adopt: bool = False) -> Path:
     if (not root.is_dir() or directory == root or not directory.is_relative_to(root)
             or root == Path.home().resolve() or root == root.parent):
         raise ValueError("Register a workbench inside its own website project root")
-    enclosing = project_for(directory.parent)
+    enclosing = project_for(directory)
     if enclosing and enclosing != root and enclosing.is_relative_to(root):
         raise ValueError("The workbench belongs to a nested website project")
     key = directory / INDEX
     entry = inventory(directory)
     serialized = (json.dumps(entry, ensure_ascii=False, indent=2) + "\n").encode()
-    with project_lock(root):
+    with project_lock(root), ExitStack() as source_locks:
         agents = root / "AGENTS.md"
         if agents.is_symlink() or key.is_symlink():
             raise ValueError("Expected regular project entry and index files")
@@ -164,17 +191,19 @@ def register(root: Path, directory: Path, *, adopt: bool = False) -> Path:
         body = (original or b"").decode("utf-8")
         bom = body.startswith("\ufeff")
         body = body.removeprefix("\ufeff")
-        bounds = block_range(body)
-        if WP_START in body.splitlines() or WP_END in body.splitlines():
-            wp_start, wp_end = body.find(WP_START), body.find(WP_END)
-            if wp_start < 0 or wp_end < wp_start or (bounds and bounds[0] < wp_end + len(WP_END) and wp_start < bounds[1]):
-                raise ValueError("Overlapping or incomplete WordPress and SEO sections; preserve and separate them before registering")
+        bounds = managed_bounds(body)
         entries: RolePaths = read_revisions(root, body)
+        for path in entries:
+            require_registered_owner(root, path.parent)
         scope = identity(entry)
         if key in entries and identity(entries[key][1]) != scope:
             raise ValueError("A registered revision cannot change site, market, language or mode")
         role = entries[key][0] if key in entries else "draft"
         if adopt:
+            if role != "adopted":
+                from workbench_update import verify_update_base
+
+                verify_update_base(root, directory, source_locks)
             for path, (prior_role, item) in list(entries.items()):
                 if path != key and prior_role == "adopted" and identity(item) == scope:
                     entries[path] = ("previous", item)
@@ -184,9 +213,10 @@ def register(root: Path, directory: Path, *, adopt: bool = False) -> Path:
         order = sorted(entries, key=lambda p: (identity(entries[p][1]), priority[entries[p][0]], p))
         sections = [render_entry(root, path, entries[path][1], entries[path][0]) for path in order]
         region = (START + "\n## SEO 网站架构与数据\n\n"
-                  "建站和日常 SEO 读取对应站点、市场及语言的「当前采用」索引。只有草案时，实施方案尚待选定。"
-                  "用户给出具体工作台链接时，按链接读取该版最新的用户逐页确认清单。build 纳入本次工作，skip 跳过，pending 待定。"
-                  "用页面编号关联本版的关键词、模块和建站模板。此选择独立于采用版登记。旧版缺少逐页选择时向用户核实范围。"
+                  "用户给出工作台链接时读取该版本。日常建站与 SEO 按站点、市场、语言和模式选「当前采用」。"
+                  "同一范围仅有一个草案且已保存明确的页面选择或 SEO 排期时，可从该草案继续。"
+                  "用本版页面编号关联关键词、模块和建站模板。建站读取「要建」，On-page 读取已安排 SEO 中「可开始」的页面。"
+                  "「已建」「已优化」来自逐页工作回执。旧版缺少逐页清单时核实版本和范围。"
                   "本机链接暂停时按其路径找到本项目内的原工作台，用架构 Skill 的 scripts/workbench.py --workbench 重开。"
                   "On-page 的 --source 指向所选版目录。\n\n"
                   + "\n\n".join(sections) + "\n" + END)

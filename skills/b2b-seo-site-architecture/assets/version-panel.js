@@ -28,7 +28,7 @@ const architectureVersion = (() => {
       make('strong', selected?.name || '工作台版本'));
     if(selected){
       const count=versions.filter(v=>v.role==='draft').length;
-      const caption=role==='adopted'?(count?'另有 '+count+' 份草案':''):(current?'采用版 · '+current.name:'尚未采用方案');
+      const caption=role==='adopted'?(count?'另有 '+count+' 份草案':''):(current?'采用版 · '+current.name:count===1 && role==='draft'?'本范围唯一草案':'尚未采用方案');
       if(caption)summary.append(make('small',caption,'version-compare'));
     }
     summary.append(make('span', role ? '查看 / 切换版本' : '查看版本说明', 'version-action'));
@@ -38,8 +38,11 @@ const architectureVersion = (() => {
     if (!selected) {
       content.append(make('p','请从网站项目根目录打开已登记的工作台，以核对当前采用版。此快照也可用完整目录单独交接。'));
     } else {
-      content.append(make('p',current ? '项目默认读取「'+current.name+'」。新草案保留独立的页面规划和交接资料。' :
-        '这个市场尚未采用方案。可以审阅草案，选定后再供日常 SEO 和建站使用。'));
+      const drafts=versions.filter(v=>v.role==='draft');
+      content.append(make('p',current ? '项目默认读取「'+current.name+'」。指定草案链接时，使用该版的页面规划与选择。' :
+        drafts.length===1 ? '本市场只有这一份草案。建页和 SEO 可以按这份草案中已确认的选择继续。' :
+        drafts.length>1 ? '本市场有多份草案。请将要使用的版本链接交给建站或 SEO 执行方。' :
+        '本市场尚未指定采用版。请核对要使用的工作台版本。'));
       const list = make('ul', '', 'version-list');
       for (const revision of versions) {
         const row = make('li');

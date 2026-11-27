@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 from urllib.request import urlopen
 
-from page_confirmation import FILENAME, DecisionConflict, change_page, encode, read_handoff
+from page_confirmation import FILENAME, DecisionConflict, change_page, encode, normalize_handoff, read_handoff
 from plan_records import Row, obj, records, text
 from register_project import atomic_write, project_lock
 from revisions import read_revisions
@@ -28,13 +28,18 @@ ALTERNATE = {"index.html", "design.html"}
 
 def page_list(context: Row) -> bytes:
     labels = {"build": "要建", "skip": "不建", "pending": "待定"}
+    states = {"not_started": "暂无回执", "built": "已建页", "optimized": "已优化", "published": "已发布"}
     rows = []
     for page in records(context, "pages"):
         name = str(page.get("name_zh") or page["name"])
-        label = labels[text(page, "decision")]
-        rows.append(f"<tr><td>{escape(name)}</td><td>{escape(text(page, 'url'))}</td><td>{label}</td></tr>")
+        progress = obj(page["progress"])
+        seo = "可开始" if page["seo_eligible"] else "等建页确认" if page["seo_decision"] == "requested" else "暂不安排"
+        cells = (name, text(page, "url"), labels[text(page, "decision")],
+                 states[text(obj(progress["build"]), "status")], seo, states[text(obj(progress["onpage"]), "status")])
+        rows.append("<tr>" + "".join("<td>" + escape(value) + "</td>" for value in cells) + "</tr>")
     return ("<table><caption>用户已保存的逐页选择</caption><thead><tr><th>页面</th><th>规划网址</th>"
-            "<th>本次选择</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>").encode()
+            "<th>本次选择</th><th>建站进度</th><th>SEO 排期</th><th>SEO 进度</th></tr></thead><tbody>" +
+            "".join(rows) + "</tbody></table>").encode()
 
 
 class ReviewServer(ThreadingHTTPServer):
@@ -83,15 +88,18 @@ class ReviewRequest(BaseHTTPRequestHandler):
     def allowed_host(self) -> bool:
         return self.headers.get("Host") in {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
 
-    def send_data(self, data: bytes, kind: str, status: int = 200, *, editable: bool = False) -> None:
+    def send_data(self, data: bytes, kind: str, status: int = 200, *, editable: bool = False, etag: str = "") -> None:
         self.send_response(status)
         self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("Vary", "Accept")
         self.send_header("X-Content-Type-Options", "nosniff")
+        if etag:
+            self.send_header("ETag", etag)
         if editable:
             self.send_header("X-Workbench-Editor", "1")
+            self.send_header("X-Workbench-Progress", "1")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(data)
@@ -114,9 +122,20 @@ class ReviewRequest(BaseHTTPRequestHandler):
         try:
             path, folder, role = self.server.locate(self.path)
             if folder and (folder / FILENAME).is_file() and path.parent == folder and path.name in {*ALTERNATE, FILENAME}:
-                context = {**read_handoff(folder), "registration": role, "workbench_url": self.server.url(folder)}
-                if path.name == FILENAME or self.headers.get("Accept", "").split(",")[0].strip() == "application/json":
-                    self.send_data(encode(context), "application/json; charset=utf-8", editable=True)
+                as_json = path.name == FILENAME or self.headers.get("Accept", "").split(",")[0].strip() == "application/json"
+                with local_file(folder, FILENAME).open("rb") as stream:
+                    state = os.fstat(stream.fileno())
+                    etag = f'W/"{role}-{state.st_ino:x}-{state.st_mtime_ns:x}-{state.st_size:x}"'
+                    if as_json and self.headers.get("If-None-Match") == etag:
+                        self.send_response(304)
+                        self.send_header("ETag", etag)
+                        self.send_header("Vary", "Accept")
+                        self.end_headers()
+                        return
+                    context = {**normalize_handoff(obj(json.load(stream))), "registration": role,
+                               "workbench_url": self.server.url(folder)}
+                if as_json:
+                    self.send_data(encode(context), "application/json; charset=utf-8", editable=True, etag=etag)
                 else:
                     # Plain HTML readers also receive the saved state; script delimiters in customer text stay inert.
                     payload = json.dumps(context, ensure_ascii=True, separators=(",", ":")).replace("<", "\\u003c").encode()
@@ -174,6 +193,9 @@ def open_server(folder: Path, port: int | None, launch: bool) -> None:
     handoff = read_handoff(folder)
     root = project_for(folder) or folder
     with project_lock(root):
+        if root != folder:
+            from register_project import sync_entry_locked
+            sync_entry_locked(root, folder, read_handoff(folder))
         directory = local_path(root, ".seo-architecture")
         if (root / ".seo-architecture").is_symlink():
             raise ValueError("Invalid local editor settings directory")
@@ -193,12 +215,12 @@ def open_server(folder: Path, port: int | None, launch: bool) -> None:
             probe = url.rsplit("/", 1)[0] + "/" + FILENAME
             try:
                 with urlopen(probe, timeout=2) as response:
-                    same = (response.headers.get("X-Workbench-Editor") == "1" and
+                    same = (response.headers.get("X-Workbench-Progress") == "1" and
                             json.load(response).get("revision_id") == handoff["revision_id"])
             except (OSError, ValueError, AttributeError):
                 same = False
             if not same:
-                raise ValueError(f"Port {wanted} is in use. To choose a new address, use --port 0.") from error
+                raise ValueError(f"Port {wanted} is in use. Close the previous editor to keep this URL, or select --port 0.") from error
             entry = folder / "workbench-open.js"
             if entry.is_file():
                 atomic_write(entry, ("window.workbenchEditorUrl = " + json.dumps(url) + ";\n").encode(),

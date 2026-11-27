@@ -15,7 +15,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 
-from delivery import collect_analysis
+from delivery import collect_analysis, digest
 from plan_records import (
     Row as Row, active_design_modules as active_design_modules, index as index, obj as obj,
     optional_records as optional_records, records as records, require as require, strings as strings, text as text,
@@ -24,9 +24,12 @@ from search_plan import SearchPlan, workbench_template
 from page_confirmation import create_handoff
 from register_project import register
 from seo_project import project_for
+from update_inputs import combined_sources, linked_inputs, prepare_intake
+from workbench_update import UpdateBase
+from workbench_upgrade import upgrade_workbench
 
 VERSION = "0.5.0"
-TOOL_VERSION = "0.8.0"
+TOOL_VERSION = "0.9.0"
 BILINGUAL_VERSIONS = {"0.4.0", VERSION}
 DESIGN_VERSIONS = {"0.3.0", *BILINGUAL_VERSIONS}
 SUPPORTED_VERSIONS = {"0.1.0", "0.2.0", *DESIGN_VERSIONS}
@@ -963,7 +966,8 @@ def viewer_payload(payload: Row, keywords: dict[str, dict[str, str]]) -> Row:
 
 
 def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analysis_dir: Path | None = None,
-                         materials: Path | None = None, project_root: Path | None = None, *, adopt: bool = False) -> Row:
+                         materials: Path | None = None, project_root: Path | None = None, *, adopt: bool = False,
+                         update_from: Path | None = None) -> Row:
     project_root = project_root or project_for(out.parent)
     require(not adopt or project_root is not None, "Adopting a revision requires its website project root")
     if project_root and (not project_root.is_dir() or not out.resolve().is_relative_to(project_root.resolve())):
@@ -973,6 +977,11 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
     plan = obj(raw)
     keywords = read_keywords(keywords_path)
     validation = validate(plan, keywords)
+    project = obj(plan["project"])
+    base = UpdateBase.read(update_from, out, project_root, project) if update_from is not None else None
+    if base and analysis_dir is None and (base.folder / "analysis").is_dir():
+        if digest(base.folder / "clean-keywords.csv") == digest(keywords_path):
+            analysis_dir = base.folder / "analysis"
     delivery = collect_analysis(analysis_dir, keywords_path, set(index(records(plan, "competitors"))))
     validation["tool_version"] = TOOL_VERSION
     validation["analysis_delivery"] = delivery.summary()
@@ -980,7 +989,6 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
     templates = index(records(plan, "templates"))
     decisions = records(plan, "decisions")
     ranking_rows = records(plan, "ranking_observations")
-    project = obj(plan["project"])
 
     def breadcrumbs(page: Row, key: str = "name") -> list[str]:
         chain = [text(page, key)]
@@ -1050,6 +1058,11 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
         stage = Path(temporary) / "result"
         stage.mkdir()
         delivery.write(stage)
+        if base:
+            old_sources, _ = linked_inputs(base.folder)
+            merged_materials = combined_sources(old_sources["supplied"], materials, "files", Path(temporary))
+            materials = Path(temporary) / "materials.json"
+            dump(materials, {"files": merged_materials})
         search_plan.write(stage, encoded, keywords_path, materials)
         dump(stage / "architecture-plan.json", plan)
         dump(stage / "validation.json", validation)
@@ -1130,8 +1143,12 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
                         ("；".join(strings(page, "reference_urls")) or "本输入范围暂无关联"), ""]
         (stage / "design-handoff.md").write_text("\n".join(handoff), encoding="utf-8")
         create_handoff(stage, project)
-        require(not out.exists(), "Output appeared during execution")
-        stage.rename(out)
+        if base:
+            base.apply(stage, out)
+            base.publish(stage, out)
+        else:
+            require(not out.exists(), "Output appeared during execution")
+            stage.rename(out)
     if project_root:
         try:
             validation["project_index"] = str(register(project_root, out, adopt=adopt))
@@ -1147,6 +1164,14 @@ def main() -> int:
     mode.add_argument("--plan", type=Path)
     mode.add_argument("--register-existing", type=Path, metavar="WORKBENCH",
                       help="Register a completed workbench, including a v0.5.x delivery")
+    mode.add_argument("--prepare-update", type=Path, metavar="PREVIOUS_WORKBENCH",
+                      help="Recover archived source mappings and combine them with newly received exports")
+    mode.add_argument("--upgrade-workbench", type=Path, metavar="WORKBENCH",
+                      help="Upgrade a 0.8.0 editor at its existing URL, preserving the plan, decisions and original HTML")
+    parser.add_argument("--update-from", type=Path, metavar="PREVIOUS_WORKBENCH",
+                        help="Carry verified page choices and work history into this newly compiled revision")
+    parser.add_argument("--keyword-sources", type=Path, help="Additional mapped keyword sources for --prepare-update")
+    parser.add_argument("--ranking-sources", type=Path, help="Additional mapped rankings or Top Pages for --prepare-update")
     parser.add_argument("--keywords", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--adopt", action="store_true", help="Use this revision as the project's selected plan")
@@ -1156,17 +1181,30 @@ def main() -> int:
     parser.add_argument("--materials", type=Path, help="Manifest of additional customer-supplied originals to include")
     args = parser.parse_args()
     try:
-        if args.register_existing:
+        if args.update_from and not args.plan:
+            parser.error("--update-from belongs to --plan when compiling a separate revision")
+        if (args.keyword_sources or args.ranking_sources) and not args.prepare_update:
+            parser.error("--keyword-sources and --ranking-sources belong to --prepare-update")
+        if args.prepare_update:
+            if not args.out or args.keywords or args.analysis_dir or args.adopt:
+                parser.error("--prepare-update requires --out for the recovered source manifests")
+            result = prepare_intake(args.prepare_update, args.out, args.keyword_sources, args.ranking_sources, args.materials)
+        elif args.upgrade_workbench:
+            if args.adopt or args.out or args.keywords or args.analysis_dir or args.materials:
+                parser.error("--upgrade-workbench updates the existing editor at its original URL")
+            result = upgrade_workbench(args.upgrade_workbench, TOOL_VERSION, args.project_root)
+        elif args.register_existing:
             root = args.project_root or project_for(args.register_existing) or project_for(Path.cwd())
             if not root:
                 parser.error("Specify the customer's --project-root to register this delivery")
             print(json.dumps({"project_index": str(register(root, args.register_existing, adopt=args.adopt))}, ensure_ascii=False))
             return 0
-        if not args.keywords or not args.out:
-            parser.error("--plan requires --keywords and --out")
-        root = args.project_root or project_for(Path.cwd())
-        result = compile_architecture(args.plan, args.keywords, args.out, args.analysis_dir, args.materials, root,
-                                      adopt=args.adopt)
+        else:
+            if not args.keywords or not args.out:
+                parser.error("--plan requires --keywords and --out")
+            root = args.project_root or project_for(Path.cwd())
+            result = compile_architecture(args.plan, args.keywords, args.out, args.analysis_dir, args.materials, root,
+                                          adopt=args.adopt, update_from=args.update_from)
     except (OSError, ValueError, KeyError) as exc:
         print(json.dumps({"status": "failed", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1

@@ -19,16 +19,9 @@
 @media(max-width:740px){.app{display:block}.rail{display:none;position:fixed;inset:0 auto 0 0;width:225px;height:100dvh;z-index:3;box-shadow:6px 0 36px #123f4a35}.rail.open{display:flex}.top{padding:0 12px;height:48px;gap:8px}.top small{font-size:11px}#menu,#close-menu{display:block;flex-shrink:0}.main{padding:16px 12px 32px}.tools{gap:8px}.tools label{flex:1 1 130px}.tools input[type=search],.tools select{width:100%;max-width:100%}.pair{grid-template-columns:1fr}.tree{max-height:250px;overflow:auto}.head{display:block}.metric-line{gap:8px 14px}.metric-line b{font-size:16px}article{padding:14px}.table-scroll{max-width:calc(100vw - 24px)}th,td{padding:8px}.downloads{gap:8px 14px}.pager{justify-content:center}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 .tree .branch-row{display:flex;align-items:center;min-width:0}.tree .branch-toggle,.tree .branch-space{width:24px;flex:0 0 24px}.tree .branch-toggle{padding:4px 0;text-align:center;color:var(--muted);font-size:17px}.tree .branch-toggle:hover{background:var(--pale)}
-.planning-list td{vertical-align:top}.planning-list td:first-child{width:26%}.planning-list td:nth-child(2){width:23%}.planning-list td:nth-child(3){width:29%}
-.planning-list .linkbtn{font-size:15px}.planning-list small,.planning-list .pathname{display:block;margin-top:4px;color:var(--muted);font-size:12px}.planning-list .pathname{font-family:var(--mono);overflow-wrap:anywhere}
 .handoff{padding:14px;background:#f0f7f5;border:1px solid #cae0da;border-radius:6px;margin:14px 0}.handoff summary{font-weight:650;color:var(--petrol)}
 .handoff textarea{box-sizing:border-box;width:100%;min-height:9em;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:4px;color:var(--ink);background:white;font:inherit;resize:vertical}
 .page-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin:8px 0}.page-actions .primary{background:var(--petrol);color:white;border-color:var(--petrol)}
-@media(max-width:740px){
-  .planning-list table,.planning-list tbody,.planning-list tr{display:block;width:100%}.planning-list thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
-  .planning-list tbody tr{padding:10px 12px;border-bottom:1px solid var(--line)}.planning-list tbody td:nth-child(n){display:block;width:auto;padding:3px 0;border:0}
-  .planning-list td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:600;color:var(--muted);margin-right:8px}
-}
 /* __REVIEW_LAYOUT__ */
 </style>
 </head>
@@ -42,19 +35,28 @@
 <details id="version-panel" aria-label="架构方案版本"></details>
 <div class="head"><div><h1 id="view-title">网站架构</h1><p id="view-desc"></p></div></div>
 <div class="metric-line" id="metrics"></div>
-<section id="selection-summary" class="selection-summary" aria-label="本次页面确认">
-<div class="selection-counts"><span><b id="choice-count-build">—</b> 要建</span><span><b id="choice-count-skip">—</b> 不建</span><span><b id="choice-count-pending">—</b> 待定</span></div>
+<section id="selection-summary" class="selection-summary" aria-label="全部规划页的选择与执行进度">
+<div class="work-totals">
+  <div><h2>建页选择</h2><p><span><b id="choice-count-build" data-tally="decision.build">—</b> 要建</span><span><b id="choice-count-skip" data-tally="decision.skip">—</b> 不建</span><span><b id="choice-count-pending" data-tally="decision.pending">—</b> 待定</span></p></div>
+  <div><h2>实际建页</h2><p><span><b data-tally="build.completed">—</b> 已建页</span><span>其中 <b data-tally="build.published">—</b> 已发布</span><span><b data-tally="build.not_started">—</b> 暂无记录</span></p></div>
+  <div><h2>SEO 排期</h2><p><span><b data-tally="seo_decision.requested">—</b> 安排优化</span><span><b data-tally="seo_decision.hold">—</b> 暂不安排</span><small id="unspecified-seo" hidden></small></p></div>
+  <div><h2>实际优化</h2><p><span><b data-tally="onpage.completed">—</b> 已优化</span><span>其中 <b data-tally="onpage.published">—</b> 已发布</span><span><b data-tally="onpage.not_started">—</b> 暂无记录</span></p></div>
+</div>
 <div class="selection-actions"><span id="choice-status" role="status"></span><button type="button" id="copy-workbench">复制工作台链接</button><input id="copy-link-text" aria-label="工作台链接" readonly hidden><a id="editable-workbench" hidden>打开可编辑工作台</a></div>
 <p id="readonly-help" hidden>当前为只读预览。请打开项目的可编辑工作台保存选择。<label id="load-choice-file" hidden>读取已保存的确认清单 <input id="choice-file" type="file" accept=".json"></label></p></section>
-<div class="tools">
+<div class="tools" id="view-filters">
 <label>查找<input id="query" type="search" placeholder="搜索当前视图"></label>
-<label id="decision-field">建页选择<select id="decision-filter"><option value="">全部页面</option><option value="build">要建</option><option value="skip">不建</option><option value="pending">待定</option></select></label>
+<button type="button" id="work-filter-toggle" aria-expanded="false" aria-controls="decision-field build-progress-field seo-field onpage-progress-field priority-field" hidden>筛选</button>
+<label id="decision-field">建页选择<select id="decision-filter"><option value="">全部选择</option><option value="build">要建</option><option value="skip">不建</option><option value="pending">待定</option></select></label>
+<label id="build-progress-field">建页进度<select id="build-progress-filter"><option value="">全部进度</option><option value="not_started">暂无建页记录</option><option value="built">已建页</option><option value="published">建页已发布</option></select></label>
+<label id="seo-field">SEO 排期<select id="seo-filter"><option value="">全部排期</option><option value="requested">安排优化</option><option value="hold">暂不安排</option><option value="waiting">已安排，等建页确认</option></select></label>
+<label id="onpage-progress-field">优化进度<select id="onpage-progress-filter"><option value="">全部进度</option><option value="not_started">暂无优化记录</option><option value="optimized">已优化</option><option value="published">优化已发布</option></select></label>
 <label id="priority-field" hidden>规划优先级<select id="priority"><option value="">全部优先级</option></select></label>
 <label id="page-field">页面范围<select id="page"></select></label>
 <label id="term-field" hidden>词组长度<select id="term-length"><option value="0">全部</option><option value="1">单词</option><option value="2">连续两词</option><option value="3">连续三词</option></select></label>
 <label id="locale-field">市场 / 语言<select id="locale"></select></label>
 </div>
-<div id="focus"></div><div id="results"></div>
+<div id="focus"></div><p id="planning-count" class="planning-count" hidden></p><div id="results"></div>
 <div class="pager" id="pager"><button id="prev" type="button">上一批</button><span id="count" aria-live="polite"></span><button id="next" type="button">下一批</button></div>
 <details class="drawer"><summary>下载分析与规划表</summary><div class="downloads" id="files"></div></details>
 </main></div></div>
@@ -98,7 +100,7 @@ const modes = {opportunities:'业务待核与取舍',overview:'网站页面规�
   intents:'整句与采购意图',values:'属性与取值',inputs:'原始数据表',sites:'竞品站点',urls:'竞品流量与排名页',prices:'商品报价'};
 const sections = {'页面规划':['overview','pages','groups','coverage'],'词库分析':['decisions','terms','intents','values'],
   '输入与竞品':['opportunities','inputs','sites','urls','prices']};
-const captions = {opportunities:'查看拆并理由、企业需要补齐的资料和竞品原始记录。',overview:'逐页选择要建或不建，暂时拿不准的留为待定。复制工作台链接给 Codex，即可按已选页面建站或更新内容。',pages:'按父子层级查看每页的采购任务、关键词和内容模块。',groups:'比较同一取值的不同采购任务，以及每组词的拆并依据。',
+const captions = {opportunities:'查看拆并理由、企业需要补齐的资料和竞品原始记录。',overview:'逐页确认是否建页、是否安排 SEO。建页、优化和发布进度来自项目回执。',pages:'按父子层级查看每页的执行记录、采购任务、关键词和内容模块。',groups:'比较同一取值的不同采购任务，以及每组词的拆并依据。',
   coverage:'按来源、市场和语言核对完整承接、部分承接及尚待处理的需求。',decisions:'每行是同一市场、语言中的一个查询。点击原词可看分词、原始记录及页面归属。',
   terms:'单词和连续两至三词按不同查询数排序。点击词组可展开全部原句。',intents:'从完整查询判断买家要完成的事，再查看同组的全部表达。',
   values:'维度用成员并集计数。选择一个取值可查看全部成员。',inputs:'查看收到的文件、原始行与下载入口。',
@@ -113,6 +115,13 @@ data.terms=data.terms.map(([market,language,term,ngram,tf,df,denominator])=>({ma
 const scopeModes = new Set(['decisions','groups']);
 let mode = 'pages', selectedPage = '', selectedValue = '', selectedPlan = '', selectedDimension = null, selectedWord = '', offset = 0;
 const size = 30;
+const workFilters = [
+  {id:'decision', field:'decision'},
+  {id:'build-progress', field:'build'},
+  {id:'seo', field:'seo_decision'},
+  {id:'onpage-progress', field:'onpage'}
+];
+let overviewMatches = 0;
 function node(tag, value, cls) {
   const item = document.createElement(tag);
   if (value !== undefined && value !== null) item.textContent = String(value);
@@ -128,7 +137,7 @@ function action(label, handler) {
   const b = node('button',label); b.type = 'button'; b.addEventListener('click',handler); return b;
 }
 function reset(view) {
-  byId('decision-filter').value='';
+  for(const filter of workFilters)byId(filter.id+'-filter').value='';
   opportunityFilter='all';opportunityId='';
   mode = view; selectedIntent='';selectedTerm=null;selectedSite='';sourceId='';sourceRow=1;activePage='';locale='';byId('locale').value=''; selectedPage = ''; selectedValue = ''; selectedPlan = ''; selectedDimension = null; selectedWord = ''; offset = 0;
   selectedUrl='';byId('query').value = ''; byId('page').value = ''; byId('priority').value = '';
@@ -154,7 +163,7 @@ function priceCard(box,row) {
 }
 function renderPage(box,p) {
   box.append(node('h2',pageName(p)),node('p',[p.id,title(p.page_type),p.url].join(' · '),'meta'));
-  const choice=node('div','','field');choice.append(node('strong','本次是否建页'),pageChoices.controls(p.id));box.append(choice);
+  if(p.page_type!=='article')box.append(pageChoices.pagePanel(p.id));
   if(p.primary_keyword)box.append(chip('主词 · '+p.primary_keyword));
   line(box,'页面职责',p.objective); line(box,'页面安排',[title(p.page_action),title(p.approval),p.priority].filter(Boolean).join(' · '));line(box,'优先理由',p.priority_reason);
   line(box,'拆并依据',p.rationale); line(box,'相邻页边界',[p.boundary,...p.adjacent_page_ids.map(id=>id+' '+pageName(pageById.get(id)))].filter(Boolean));
@@ -237,6 +246,15 @@ function revealPage(id) {
   while(parent){collapsedBranches.delete(parent);parent=pageById.get(parent)?.parent_id;}
 }
 function openPage(id) {reset('pages');revealPage(id);navigate();}
+function openReceipts(id) {
+  openPage(id);
+  const panel=byId('results').querySelector('[data-history-page]');
+  if(panel) {
+    panel.open=true;
+    panel.firstElementChild.focus({preventScroll:true});
+    panel.scrollIntoView({block:'nearest'});
+  }
+}
 function external(parent, url, label) {
   try {
     const u=new URL(url);
@@ -254,7 +272,7 @@ function navigate(replace=false) {
   const h=new URLSearchParams({view:mode});
   if(mode==='opportunities'){h.set('status',opportunityFilter);if(opportunityId)h.set('item',opportunityId);if(byId('query').value)h.set('q',byId('query').value);}
   if(mode==='overview') {
-    if(byId('decision-filter').value)h.set('decision',byId('decision-filter').value);
+    for(const {id} of workFilters){const value=byId(id+'-filter').value;if(value)h.set(id,value);}
     if(byId('priority').value)h.set('priority',byId('priority').value);
     if(byId('query').value)h.set('q',byId('query').value);
   }
@@ -272,7 +290,10 @@ function restore() {
   const h=new URLSearchParams(location.hash.slice(1)),v=h.get('view');
   reset(Object.hasOwn(modes,v)?v:'overview');
   if(mode==='opportunities'){opportunityFilter=Object.hasOwn(opportunityFilters,h.get('status'))?h.get('status'):'all';opportunityId=h.get('item')||'';byId('query').value=h.get('q')||'';}
-  if(mode==='overview'){byId('decision-filter').value=h.get('decision')||'';byId('query').value=h.get('q')||'';byId('priority').value=h.get('priority')||'';}
+  if(mode==='overview'){
+    for(const {id} of workFilters)byId(id+'-filter').value=h.get(id)||'';
+    byId('query').value=h.get('q')||'';byId('priority').value=h.get('priority')||'';
+  }
   if(mode==='pages')revealPage(h.get('page')||'');else selectedPage=h.get('page')||'';
   selectedWord=h.get('word')||'';selectedIntent=h.get('intent')||'';selectedValue=h.get('value')||'';selectedPlan=h.get('plan')||'';
   selectedSite=h.get('site')||'';selectedUrl=mode==='urls'?(h.get('url')||''):'';sourceId=h.get('file')||'';sourceRow=Math.max(1,Number(h.get('row'))||1);
@@ -374,25 +395,30 @@ function renderInputList(box,rows){
   })));
 }
 function planningTable(box,items) {
-  const headers=['页面和所属栏目','分到本页的词','页面职责','本次是否建页'];
+  const headers=['规划页面','建页选择','实际建页','SEO 排期','实际优化'];
   const rows=items.map(p=>{
-    const name=node('div'), parent=pageById.get(p.parent_id);
-    name.append(cellButton(pageName(p),()=>openPage(p.id)),node('small',parent?'上级 · '+pageName(parent):'顶层页面'));
-    if(p.url)name.append(node('span',new URL(p.url).pathname,'pathname'));
-    const words=wordsByPage.get(p.id)||[],terms=node('div');
-    if(p.primary_keyword)terms.append(node('strong',p.primary_keyword));
-    const extra=words.find(w=>w.keyword!==p.primary_keyword);
-    if(extra)terms.append(node('small',extra.keyword));
-    if(words.length)terms.append(cellButton('查看全部 '+words.length+' 个词',()=>openWords({page:p.id})));
-    else terms.append(node('small','暂无已分配词'));
-    const status=node('div');
-    status.className='decision-cell';status.append(pageChoices.controls(p.id),node('small',[p.page_action && title(p.page_action),p.priority].filter(Boolean).join(' · ')));
-    if(p.state==='conditional')name.append(node('small','备选页 · 业务资料待核'));
-    return [name,terms,p.objective,status];
+    const name=node('div','','planned-page'), parent=pageById.get(p.parent_id);
+    name.append(cellButton(pageName(p),()=>openPage(p.id)));
+    if(p.url)name.append(node('small',new URL(p.url,location.href).pathname,'pathname'));
+    name.append(pageChoices.reviewNotice(p.id));
+    const words=wordsByPage.get(p.id)||[];
+    const facts=details('规划资料 · '+words.length+' 个词',name);
+    facts.className='planning-facts';
+    facts.append(node('p',[parent?'上级 · '+pageName(parent):'顶层页面',p.page_action && title(p.page_action),p.priority].filter(Boolean).join(' · ')));
+    if(p.state==='conditional')facts.append(node('p','备选页 · 业务资料待核'));
+    if(p.objective)line(facts,'页面职责',p.objective);
+    if(p.primary_keyword)line(facts,'主词',p.primary_keyword);
+    if(words.length)facts.append(cellButton('查看全部 '+words.length+' 个词',()=>openWords({page:p.id})));
+    const inspect=()=>openReceipts(p.id);
+    return [name,pageChoices.controls(p.id),pageChoices.progress(p.id,'build',inspect),
+      pageChoices.controls(p.id,'seo'),pageChoices.progress(p.id,'onpage',inspect)];
   });
   const table=tableBox(headers,rows);
   table.classList.add('planning-list');
-  for(const row of table.querySelectorAll('tbody tr'))row.cells[2].dataset.label=headers[2];
+  [...table.querySelectorAll('tbody tr')].forEach((row,i)=>{
+    row.dataset.pageId=items[i].id;
+    for(let n=1;n<headers.length;n++)row.cells[n].dataset.label=headers[n];
+  });
   box.append(table);
 }
 
@@ -402,24 +428,28 @@ function handoffSource() {
   if(architectureVersion.role==='adopted')return '从当前网站项目 AGENTS.md 的采用版索引读取本页。核对工作台目录为 '+directory+'，如果项目已换版，请标明原简报的版本后再交接。';
   return '本次指定「'+architectureVersion.label+'」目录 '+directory+'。从网站项目根目录以 --source 指向这个目录，--library 指向其中的 clean-keywords.csv。按同目录索引读取模块和同类页依据。对已核同类网址用 --peer-url 和本目录的 received-rankings.csv 回查其排名。';
 }
-function pageHandoff(box,p) {
-  const panel=details('准备这页的 On-page 任务',box);
-  panel.classList.add('handoff');
-  const task=node('textarea');
-  task.readOnly=true;task.setAttribute('aria-label','本页 On-page 指令');
+function onpagePrompt(p) {
   const sentences=[
     '请用 $b2b-seo-onpage 读取「'+pageName(p)+'」'+(p.url?'（'+p.url+'）':'')+'。',
     '站点 '+data.project.site_url+'，市场和语言 '+data.project.market+' / '+data.project.language+'。'+(data.project.mode==='simulation'?'本次使用模拟资料。':''),
     pageChoices.note(p.id),handoffSource(),
     '沿用页面规划、分组、行业词库及公司资料。核对同类竞品的具体排名 URL 和 Top Pages，保留相邻页的关键词归属。',
-    '最新选择为「要建」时，请交付 Title、H1、Subtitle、H2、正文及关键词位置表，标出待核的企业事实。'
+    '核对本页的 SEO 排期和可执行状态。可以执行时，请交付 Title、H1、Subtitle、H2、正文及关键词位置表，标出待核的企业事实。完成后将可回读的证据记入本页优化回执，实际发布后另记发布回执。'
   ];
   if(p.primary_keyword)sentences.splice(2,0,'本页规划主词为 '+p.primary_keyword+'。');
   if(p.approval!=='confirmed')sentences.push('规划稿仍标记为提案，企业资料以最新核实结果为准。');
-  task.value=sentences.join('\n');panel.append(task);
+  return sentences.join('\n');
+}
+function pageHandoff(box,p) {
+  const panel=details('准备这页的 On-page 任务',box);
+  panel.classList.add('handoff');
+  const task=node('textarea');
+  task.readOnly=true;task.setAttribute('aria-label','本页 On-page 指令');
+  task.dataset.taskPage=p.id;task.value=onpagePrompt(p);panel.append(task);
   const controls=node('div','','page-actions'),status=node('span','','muted');
   status.setAttribute('role','status');
   const copy=action('复制本页指令',async()=>{
+    task.value=onpagePrompt(p);
     try{await navigator.clipboard.writeText(task.value);status.textContent='已复制，可粘贴到此网站项目的 Codex 聊天。';}
     catch{task.focus();task.select();status.textContent='已选中指令，可使用系统复制。';}
   });
@@ -496,17 +526,33 @@ function hasPhrase(tokens,phrase) {
   const parts=phrase.split(' ');
   return tokens.some((token,i)=>token===parts[0]&&parts.every((part,j)=>tokens[i+j]===part));
 }
+function matchesOverview(page,query) {
+  for(const {id,field} of workFilters) {
+    const selected=byId(id+'-filter').value;
+    if(!selected)continue;
+    if(id==='seo' && selected==='waiting') {
+      if(pageChoices.value(page.id,field)!=='requested'||pageChoices.value(page.id,'seo_eligible')!==false)return false;
+    } else if(pageChoices.value(page.id,field)!==selected)return false;
+  }
+  if(byId('priority').value && page.priority!==byId('priority').value)return false;
+  return !query || [pageName(page),page.url,page.primary_keyword,page.id].join(' ').toLowerCase().includes(query)
+    || (wordsByPage.get(page.id)||[]).some(w=>w.keyword.toLowerCase().includes(query));
+}
 function draw() {
   for(const b of byId('nav').querySelectorAll('button')){
     const selected=b.dataset.mode===mode;b.setAttribute('aria-pressed',String(selected));
     if(selected)b.parentElement.open=true;
   }
   byId('selection-summary').hidden=!['overview','pages'].includes(mode);pageChoices.summary();
-  byId('decision-field').hidden=mode!=='overview';
+  byId('planning-count').hidden=mode!=='overview';
+  for(const {id} of workFilters)byId(id+'-field').hidden=mode!=='overview';
+  byId('view-filters').classList.toggle('overview-filters',mode==='overview');
+  byId('work-filter-toggle').hidden=mode!=='overview';
+  if(mode==='overview')syncFilterToggle();
   byId('view-title').textContent=modes[mode];byId('view-desc').textContent=captions[mode];
   byId('page-field').hidden=!scopeModes.has(mode);byId('term-field').hidden=mode!=='terms';
   byId('locale-field').hidden=!['terms','intents','values','coverage','decisions','groups','prices','urls'].includes(mode);
-  byId('metrics').hidden=mode!=='pages'&&mode!=='overview';byId('pager').hidden=false;
+  byId('metrics').hidden=mode!=='pages';byId('pager').hidden=false;
   byId('priority-field').hidden=mode!=='overview'||byId('priority').options.length<=2;
   byId('query').placeholder=mode==='overview'?'输入页面名称、网址或分到本页的词':'搜索当前视图';
   const q=byId('query').value.trim().toLowerCase(),box=byId('results'),focus=byId('focus');box.replaceChildren();focus.replaceChildren();
@@ -521,12 +567,7 @@ function draw() {
       if(opportunityFilter!=='all'&&opportunityState(r)!==opportunityFilter)return false;
       return !q||[r.title,r.question,r.reason,...r.urls,...r.keyword_ids.map(k=>wordById.get(k)?.keyword)].join(' ').toLowerCase().includes(q);
     }
-    if(mode==='overview'){
-      if(byId('decision-filter').value && pageChoices.decision(r.id)!==byId('decision-filter').value)return false;
-      if(byId('priority').value && r.priority!==byId('priority').value)return false;
-      return !q || [pageName(r),r.url,r.primary_keyword,r.id].join(' ').toLowerCase().includes(q)
-        || (wordsByPage.get(r.id)||[]).some(w=>w.keyword.toLowerCase().includes(q));
-    }
+    if(mode==='overview')return matchesOverview(r,q);
     if(mode==='decisions' && selectedWord && r.keyword_id!==selectedWord)return false;
     if(selectedPage && mode!=='pages' && r.page_id!==selectedPage)return false;
     if(selectedValue && !r.dimension_value_ids.includes(selectedValue))return false;
@@ -550,6 +591,12 @@ function draw() {
   if(mode==='opportunities' && opportunityId){
     const index=filtered.findIndex(r=>r.id===opportunityId);
     if(index>=0 && (index<offset||index>=offset+size))offset=Math.floor(index/size)*size;
+  }
+  if(mode==='overview'){
+    overviewMatches=filtered.length;
+    offset=Math.min(offset,Math.max(0,(Math.ceil(filtered.length/size)-1)*size));
+    const total=data.overview.length;
+    byId('planning-count').textContent=filtered.length===total?'共 '+total+' 个规划页':'当前筛选 '+filtered.length+' 页，共 '+total+' 页';
   }
   if(mode==='pages'&&filtered.length){
     const core=filtered.filter(p=>p.page_type!=='article');
@@ -596,7 +643,18 @@ byId('page').addEventListener('change',e=>{selectedPage=e.target.value;offset=0;
 byId('locale').addEventListener('change',e=>{locale=e.target.value;offset=0;navigate(true);});
 byId('term-length').addEventListener('change',()=>{offset=0;draw()});
 for(const priority of new Set(data.overview.map(p=>p.priority).filter(Boolean)))byId('priority').append(new Option(priority,priority));
-byId('decision-filter').addEventListener('change',()=>{offset=0;navigate(true);});
+for(const {id} of workFilters)byId(id+'-filter').addEventListener('change',()=>{offset=0;navigate(true);});
+function syncFilterToggle(){
+  const toggle=byId('work-filter-toggle'),open=toggle.getAttribute('aria-expanded')==='true';
+  const count=workFilters.filter(({id})=>byId(id+'-filter').value).length+Number(Boolean(byId('priority').value));
+  byId('view-filters').dataset.expanded=String(open);
+  toggle.textContent=(open?'收起筛选':'筛选')+(count?' ('+count+')':'');
+}
+byId('work-filter-toggle').addEventListener('click',event=>{
+  const toggle=event.currentTarget;
+  toggle.setAttribute('aria-expanded',String(toggle.getAttribute('aria-expanded')!=='true'));
+  syncFilterToggle();
+});
 byId('priority').addEventListener('change',()=>{offset=0;navigate(true);});
 byId('query').addEventListener('input',()=>{offset=0;if(mode==='overview'||mode==='opportunities')navigate(true);else draw();});
 byId('prev').addEventListener('click',()=>{opportunityId='';offset=Math.max(0,offset-size);draw()});
@@ -625,8 +683,18 @@ for(const [name,label] of Object.entries({'clean-keywords':'整理后原词库',
   'content-modules':'内容模块','received-rankings':'收到的排名','comparable-pages':'同类竞品依据','price-observations':'商品价格','input-files':'来源目录'})){
   const a=node('a',label);a.href=name+'.csv';a.download='';byId('files').append(a);
 }
-document.addEventListener('workbench-choice-update',()=>{if(mode==='overview'||mode==='pages')draw();});
-document.addEventListener('architecture-version-ready',()=>{if(mode==='pages')draw();});
+function syncTaskPrompt(){
+  const task=byId('results').querySelector('[data-task-page]');
+  if(task && document.activeElement!==task)task.value=onpagePrompt(pageById.get(task.dataset.taskPage));
+}
+document.addEventListener('workbench-choice-update',()=>{
+  syncTaskPrompt();
+  if(mode!=='overview'||!workFilters.some(({id})=>byId(id+'-filter').value))return;
+  const q=byId('query').value.trim().toLowerCase(),matches=data.overview.filter(page=>matchesOverview(page,q));
+  const visible=[...byId('results').querySelectorAll('tr[data-page-id]')];
+  if(matches.length!==overviewMatches||visible.some((row,i)=>matches[offset+i]?.id!==row.dataset.pageId))draw();
+});
+document.addEventListener('architecture-version-ready',syncTaskPrompt);
 window.addEventListener('popstate',restore);restore();
 </script>
 </body>
