@@ -12,18 +12,22 @@ from typing import Iterator
 from urllib.parse import quote, unquote
 
 from seo_project import (
-    END, INDEX, KIND, START, WP_END, WP_START, block_range, identity, index_paths, load_index, local_file, project_for,
+    END, INDEX, KIND, START, WP_END, WP_START, block_range, identity, local_file, project_for,
 )
+from revisions import ROLES, RolePaths, catalogue, read_revisions
 
 FILES = {"workbench": "index.html", "plan": "architecture-plan.json", "pages": "pages.csv",
          "library": "clean-keywords.csv", "decisions": "keyword-decisions.csv", "rankings": "received-rankings.csv",
          "top_pages": "page-traffic-observations.csv", "comparables": "comparable-pages.csv",
          "planning": "commercial-planning.csv", "intents": "intent-groups.csv", "frequency": "words-and-phrases.csv",
          "modules": "content-modules.csv", "fields": "design-fields.csv", "raw_catalog": "input-files.csv",
-         "analysis": "analysis-manifest.json", "validation": "validation.json"}
+         "analysis": "analysis-manifest.json", "validation": "validation.json", "opportunities": "page-opportunities.csv",
+         "design": "design.html", "templates": "templates.csv", "navigation": "navigation.csv",
+         "design_modules": "design-modules.csv", "design_briefs": "design-briefs.md",
+         "attributes": "product-attributes.csv", "design_handoff": "design-handoff.md"}
 LABELS = {"workbench": "工作台 HTML", "pages": "网站页面规划", "library": "清洗后的行业词库",
           "decisions": "逐词页面归属", "rankings": "竞品逐词排名", "top_pages": "竞品 Top Pages 数据",
-          "raw_catalog": "全部原始资料清单"}
+          "raw_catalog": "全部原始资料清单", "opportunities": "待核与已取舍的建页机会", "design": "建站设计简报"}
 
 
 def atomic_write(path: Path, data: bytes, previous: bytes | None) -> None:
@@ -105,7 +109,7 @@ def inventory(directory: Path) -> dict[str, object]:
             "csv_tables": tables, "originals": originals}
 
 
-def render_entry(root: Path, index_path: Path, entry: dict[str, object]) -> str:
+def render_entry(root: Path, index_path: Path, entry: dict[str, object], role: str) -> str:
     folder = index_path.parent
     def link(label: str, path: Path) -> str:
         return f"[{label}](<{quote(path.relative_to(root).as_posix(), safe='/.-_~')}>)"
@@ -114,7 +118,11 @@ def render_entry(root: Path, index_path: Path, entry: dict[str, object]) -> str:
     role_paths = entry["files"]
     if not isinstance(role_paths, dict):
         raise ValueError("Invalid SEO files inventory")
-    rows = [f"### {scope}", "- SEO project index: " + link("架构与资料索引", index_path)]
+    label = {"adopted": "当前采用", "draft": "新草案", "previous": "历史采用"}[role]
+    rows = [f"### {scope} · {label}", "- " + ROLES[role] + ": " + link(label + "的架构索引", index_path)]
+    if role != "adopted":
+        rows.append("- " + link(label + "的工作台", local_file(folder, role_paths["workbench"])))
+        return "\n".join(rows)
     rows.append("- " + " · ".join(link(label, local_file(folder, role_paths[role]))
                                   for role, label in LABELS.items() if role in role_paths))
     originals = entry["originals"]
@@ -135,7 +143,7 @@ def render_entry(root: Path, index_path: Path, entry: dict[str, object]) -> str:
     return "\n".join(rows)
 
 
-def register(root: Path, directory: Path) -> Path:
+def register(root: Path, directory: Path, *, adopt: bool = False) -> Path:
     root, directory = root.resolve(), directory.resolve()
     if (not root.is_dir() or directory == root or not directory.is_relative_to(root)
             or root == Path.home().resolve() or root == root.parent):
@@ -159,16 +167,23 @@ def register(root: Path, directory: Path) -> Path:
             wp_start, wp_end = body.find(WP_START), body.find(WP_END)
             if wp_start < 0 or wp_end < wp_start or (bounds and bounds[0] < wp_end + len(WP_END) and wp_start < bounds[1]):
                 raise ValueError("Overlapping or incomplete WordPress and SEO sections; preserve and separate them before registering")
-        current = index_paths(root, body)
-        entries: dict[tuple[str, ...], tuple[Path, dict[str, object]]] = {}
-        for path in current:
-            if path != key:
-                item = load_index(path)
-                entries[identity(item)] = (path, item)
-        entries[identity(entry)] = (key, entry)
-        sections = [render_entry(root, *entries[scope]) for scope in sorted(entries)]
+        entries: RolePaths = read_revisions(root, body)
+        scope = identity(entry)
+        if key in entries and identity(entries[key][1]) != scope:
+            raise ValueError("A registered revision cannot change site, market, language or mode")
+        role = entries[key][0] if key in entries else "draft"
+        if adopt:
+            for path, (prior_role, item) in list(entries.items()):
+                if path != key and prior_role == "adopted" and identity(item) == scope:
+                    entries[path] = ("previous", item)
+            role = "adopted"
+        entries[key] = (role, entry)
+        priority = {"adopted": 0, "draft": 1, "previous": 2}
+        order = sorted(entries, key=lambda p: (identity(entries[p][1]), priority[entries[p][0]], p))
+        sections = [render_entry(root, path, entries[path][1], entries[path][0]) for path in order]
         region = (START + "\n## SEO 网站架构与数据\n\n"
-                  "做单页 SEO 或建站维护时，先按本站、市场和语言选择索引，读取本页归属、同行证据与原始资料。\n\n"
+                  "建站和日常 SEO 读取对应站点、市场及语言的「当前采用」索引。只有草案时，实施方案尚待选定。"
+                  "审阅指定草案时，从其索引读取完整资料，On-page 用 --source 指向该草案目录。\n\n"
                   + "\n\n".join(sections) + "\n" + END)
         newline = "\r\n" if "\r\n" in body else "\n"
         region = region.replace("\n", newline)
@@ -177,8 +192,28 @@ def register(root: Path, directory: Path) -> Path:
         else:
             separator = "" if not body else newline if body.endswith("\n") else newline * 2
             result = body + separator + region + newline
-        atomic_write(key, serialized, key.read_bytes() if key.exists() else None)
-        atomic_write(agents, (("\ufeff" if bom else "") + result).encode(), original)
-        if key not in index_paths(root, agents.read_text(encoding="utf-8-sig")):
-            raise ValueError(f"AGENTS.md readback failed; retry --register-existing {directory}")
+        catalog_path, catalog_data, context_data = catalogue(root, key, entries)
+        updates = [(key, serialized)]
+        # Only new workbenches use the local version selector. Older HTML remains byte-identical.
+        context_path = directory / "workbench-context.js"
+        if context_path.is_file():
+            updates.append((context_path, context_data))
+        updates += [(catalog_path, catalog_data), (agents, (("\ufeff" if bom else "") + result).encode())]
+        written: list[tuple[Path, bytes, bytes | None]] = []
+        try:
+            for target, content in updates:
+                previous = original if target == agents else target.read_bytes() if target.exists() else None
+                atomic_write(target, content, previous)
+                if content != previous:
+                    written.append((target, content, previous))
+            if read_revisions(root, agents.read_text(encoding="utf-8-sig"))[key][0] != role:
+                raise ValueError("Architecture revision readback failed")
+        except (OSError, ValueError, KeyError):
+            for target, content, prior in reversed(written):
+                if target.read_bytes() == content:
+                    if prior is None:
+                        target.unlink()
+                    else:
+                        atomic_write(target, prior, content)
+            raise
     return key

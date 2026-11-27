@@ -2,13 +2,13 @@
 
 **把行业词库、竞争对手页面和企业资料，变成可以交给设计师或 AI 的网站规划。**
 
-适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。当前版本 **0.6.0**。
+适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。本地开发版本 **0.7.0**。
 
 它帮助你确定：网站建哪些页面、产品类目怎么分、应用方案怎么归类、类目页放哪些筛选器、产品详情需要填写哪些参数，以及哪些页面可以共用模板。
 
 ## 打开交付工作台
 
-双击成果目录中的 **index.html**。在“网站架构”收起或展开产品线，点一个页面就能看到买家问题、主辅词、内容模块、拆并理由及相邻页边界。在“词频与词组”点一个词组可查看全部匹配原句，再点原句可回到承接页与原表记录。
+双击成果目录中的 **index.html**。首页显示当前浏览的方案、待企业确认的建页机会和商业页面规划表。展开机会可看需核实的问题、同行具体网址和数据原行。用页名、网址或买家查询查找页面，再看主辅词、模块、拆并理由和相邻页边界。在“词频与词组”点一个词组可查看全部匹配原句，再点原句可回到承接页与原表记录。
 
 ![模拟挖掘机项目的工作台，左侧为网站层级，右侧为两吨系列页的采购任务与模块](docs/workbench-example.png)
 
@@ -16,7 +16,9 @@
 
 在建站项目中，交付后打开网站根目录的 **AGENTS.md**。里面直接链接当前市场的工作台、网站页面规划、清洗后的行业词库与逐词归属、竞品排名与 Top Pages、用户提交的原件。换一个会话也能沿这些链接继续优化指定页面。[登记现有工作台的方法](skills/b2b-seo-site-architecture/references/output-contract.md)
 
-可从 GitHub 下载这一版的离线安装包及文件校验清单。[下载 v0.6.0 ZIP](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.6.0/b2b-seo-site-architecture-0.6.0.zip) · [下载校验清单](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.6.0/b2b-seo-site-architecture-0.6.0.manifest.json)
+此分支的版本切换与机会清单可从本地安装使用。上一版的离线包和校验清单可从 GitHub 下载。[下载 v0.6.0 ZIP](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.6.0/b2b-seo-site-architecture-0.6.0.zip) · [下载校验清单](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.6.0/b2b-seo-site-architecture-0.6.0.manifest.json)
+
+新生成的工作台先作为草案。选定后，可告诉 Codex「采用这个目录里的架构方案」，或对该目录执行 `architecture.py --project-root <网站> --register-existing <工作台> --adopt`。日常 On-page 和 WordPress Builder 使用当前采用版。审阅草案的单页时，从工作台复制该页的 On-page 指令。完整项目中可看版本变化，从当前页切换到另一版的相同位置。
 
 ## 怎样安装到 Codex
 

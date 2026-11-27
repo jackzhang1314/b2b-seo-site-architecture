@@ -16,17 +16,32 @@
 @media(max-width:740px){.app{display:block}.rail{display:none;position:fixed;inset:0 auto 0 0;width:225px;height:100dvh;z-index:3;box-shadow:6px 0 36px #123f4a35}.rail.open{display:flex}.top{padding:0 12px;height:48px;gap:8px}.top small{font-size:11px}#menu,#close-menu{display:block;flex-shrink:0}.main{padding:16px 12px 32px}.tools{gap:8px}.tools label{flex:1 1 130px}.tools input[type=search],.tools select{width:100%;max-width:100%}.pair{grid-template-columns:1fr}.tree{max-height:250px;overflow:auto}.head{display:block}.metric-line{gap:8px 14px}.metric-line b{font-size:16px}article{padding:14px}.table-scroll{max-width:calc(100vw - 24px)}th,td{padding:8px}.downloads{gap:8px 14px}.pager{justify-content:center}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 .tree .branch-row{display:flex;align-items:center;min-width:0}.tree .branch-toggle,.tree .branch-space{width:24px;flex:0 0 24px}.tree .branch-toggle{padding:4px 0;text-align:center;color:var(--muted);font-size:17px}.tree .branch-toggle:hover{background:var(--pale)}
+.planning-list td{vertical-align:top}.planning-list td:first-child{width:26%}.planning-list td:nth-child(2){width:23%}.planning-list td:nth-child(3){width:29%}
+.planning-list .linkbtn{font-size:15px}.planning-list small,.planning-list .pathname{display:block;margin-top:4px;color:var(--muted);font-size:12px}.planning-list .pathname{font-family:var(--mono);overflow-wrap:anywhere}
+.handoff{padding:14px;background:#f0f7f5;border:1px solid #cae0da;border-radius:6px;margin:14px 0}.handoff summary{font-weight:650;color:var(--petrol)}
+.handoff textarea{box-sizing:border-box;width:100%;min-height:9em;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:4px;color:var(--ink);background:white;font:inherit;resize:vertical}
+.page-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin:8px 0}.page-actions .primary{background:var(--petrol);color:white;border-color:var(--petrol)}
+@media(max-width:740px){
+  .planning-list table,.planning-list tbody,.planning-list tr{display:block;width:100%}.planning-list thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+  .planning-list tbody tr{padding:10px 12px;border-bottom:1px solid var(--line)}.planning-list tbody td:nth-child(n){display:block;width:auto;padding:3px 0;border:0}
+  .planning-list td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:600;color:var(--muted);margin-right:8px}
+}
+/* __REVIEW_LAYOUT__ */
 </style>
 </head>
-<body>
+<body data-workbench="plan">
 <div class="app">
+<button type="button" id="nav-shade" aria-label="关闭侧边目录" hidden></button>
 <aside class="rail" id="rail" aria-label="工作台导航"><div class="brand"><span class="mark" aria-hidden="true"></span>网站架构工作台</div><button type="button" id="close-menu">关闭目录</button><nav id="nav" aria-label="工作视图"></nav><a class="rail-link" href="design.html">导航、模板与设计简报 ↗</a><footer>本地离线工作台</footer></aside>
 <div class="desk"><header class="top"><button id="menu" type="button" aria-expanded="false" aria-controls="rail">目录</button><strong id="project"></strong><small id="status"></small></header>
-<main class="main">
+<main class="main" id="workspace">
+<details id="version-panel" aria-label="架构方案版本"></details>
 <div class="head"><div><h1 id="view-title">网站架构</h1><p id="view-desc"></p></div></div>
 <div class="metric-line" id="metrics"></div>
+<section id="op-shortcut" class="op-shortcut" aria-label="待核建页机会" hidden></section>
 <div class="tools">
 <label>查找<input id="query" type="search" placeholder="搜索当前视图"></label>
+<label id="priority-field" hidden>规划优先级<select id="priority"><option value="">全部优先级</option></select></label>
 <label id="page-field">页面范围<select id="page"></select></label>
 <label id="term-field" hidden>词组长度<select id="term-length"><option value="0">全部</option><option value="1">单词</option><option value="2">连续两词</option><option value="3">连续三词</option></select></label>
 <label id="locale-field">市场 / 语言<select id="locale"></select></label>
@@ -37,8 +52,10 @@
 </main></div></div>
 <script type="application/json" id="architecture-data">__ARCHITECTURE_DATA__</script>
 <script type="application/json" id="search-data">__SEARCH_PLAN__</script>
+<script src="workbench-context.js"></script>
 <script>
 'use strict';
+/* __VERSION_PANEL__ */
 const data = JSON.parse(document.getElementById('search-data').textContent);
 function unpack(fields, rows) {
   return rows.map(cells => { const item={}; fields.forEach((field,i)=>{item[field]=cells[i];}); return item; });
@@ -50,6 +67,13 @@ delete data.rank_rows;
 const byId = id => document.getElementById(id);
 const wordById = new Map(data.decisions.map(row => [row.keyword_id, row]));
 const pageById = new Map(data.pages.map(row => [row.id, row]));
+data.overview = data.pages.filter(page => page.page_type !== 'article');
+const wordsByPage = new Map();
+for (const word of data.decisions) {
+  if (!word.page_id) continue;
+  if (!wordsByPage.has(word.page_id)) wordsByPage.set(word.page_id, []);
+  wordsByPage.get(word.page_id).push(word);
+}
 const prices = new Map(data.prices.map(row => [row.source_ref, row]));
 const ranks = new Map(data.ranks.map(row => [row.source_ref, row]));
 const valueById = new Map(data.values.filter(row => row.value_id).map(row => [row.value_id, row]));
@@ -59,17 +83,18 @@ const labels = {full:'拟完整承接',partial:'拟部分承接',pending:'待核
 const title = key => labels[key] || key || '待补';
 const primaryName = row => /^en(?:[-_]|$)/i.test(data.project.language) && row.name_en ? row.name_en : row.name;
 const pageName = row => row ? [...new Set([primaryName(row),row.name_zh].filter(Boolean))].join(' · ') : '';
-const modes = {pages:'网站架构',groups:'商业页面拆并',coverage:'意图覆盖',decisions:'整理后词库',terms:'词频与词组',
+/* __OPPORTUNITIES__ */
+const modes = {opportunities:'建页机会',overview:'网站页面规划表',pages:'架构树与单页简报',groups:'商业页面拆并',coverage:'意图覆盖',decisions:'整理后词库',terms:'词频与词组',
   intents:'整句与采购意图',values:'属性与取值',inputs:'原始数据表',sites:'竞品站点',urls:'竞品流量与排名页',prices:'商品报价'};
-const sections = {'页面规划':['pages','groups','coverage'],'词库分析':['decisions','terms','intents','values'],
+const sections = {'页面规划':['overview','opportunities','pages','groups','coverage'],'词库分析':['decisions','terms','intents','values'],
   '输入与竞品':['inputs','sites','urls','prices']};
-const captions = {pages:'按父子层级查看每页的采购任务、关键词和内容模块。',groups:'比较同一取值的不同采购任务，以及每组词的拆并依据。',
+const captions = {opportunities:'展开一项机会，核对采购需求、企业供货范围和竞品依据，再决定是否单独建页。',overview:'选中页面名称，核对它要回答的采购问题、已分配的词和需要补的资料。',pages:'按父子层级查看每页的采购任务、关键词和内容模块。',groups:'比较同一取值的不同采购任务，以及每组词的拆并依据。',
   coverage:'按来源、市场和语言核对完整承接、部分承接及尚待处理的需求。',decisions:'每行是同一市场、语言中的一个查询。点击原词可看分词、原始记录及页面归属。',
   terms:'单词和连续两至三词按不同查询数排序。点击词组可展开全部原句。',intents:'从完整查询判断买家要完成的事，再查看同组的全部表达。',
   values:'维度用成员并集计数。选择一个取值可查看全部成员。',inputs:'查看收到的文件、原始行与下载入口。',
   sites:'打开客户提供的竞品站点，查看实访记录与该站收到的排名页。',urls:'按工具、日期及具体 URL 查看整页估算流量和收到的逐词排名。',
   prices:'逐条核对商品标价、币种、数量、配置与交付条件。'};
-let selectedIntent='', selectedTerm=null, selectedSite='', sourceId='', sourceRow=1, activePage='', locale='';
+let selectedIntent='', selectedTerm=null, selectedSite='', selectedUrl='', sourceId='', sourceRow=1, activePage='', locale='';
 const groupById=new Map(data.intents.map(row=>[row.id,row]));
 const inputById=new Map(data.inputs.map(row=>[row.id,row]));
 const srcByKey=new Map(data.inputs.map(row=>[row.family+'|'+row.source_id,row]));
@@ -93,8 +118,9 @@ function action(label, handler) {
   const b = node('button',label); b.type = 'button'; b.addEventListener('click',handler); return b;
 }
 function reset(view) {
+  opportunityFilter='all';opportunityId='';
   mode = view; selectedIntent='';selectedTerm=null;selectedSite='';sourceId='';sourceRow=1;activePage='';locale='';byId('locale').value=''; selectedPage = ''; selectedValue = ''; selectedPlan = ''; selectedDimension = null; selectedWord = ''; offset = 0;
-  byId('query').value = ''; byId('page').value = '';
+  selectedUrl='';byId('query').value = ''; byId('page').value = ''; byId('priority').value = '';
 }
 function openWords({page='', value='', plan='', dimension=null, word='',intent='',term=null}={}) {
   reset('decisions'); selectedPage = page; selectedValue = value; selectedPlan = plan; selectedDimension = dimension; selectedWord = word; selectedIntent=intent;selectedTerm=term;
@@ -131,8 +157,13 @@ function renderPage(box,p) {
   }
   for(const c of data.comparisons.filter(c=>c.page_id===p.id)) {
     const d=details('同类竞品 · '+c.url,box); external(d,c.url);line(d,'可比理由',c.reason); line(d,'页面观察',[c.page_type,c.status,c.observed_at]);
+    d.append(action('查看此网址的排名词与 Top Pages',()=>{
+      reset('urls');selectedUrl=c.url;locale=JSON.stringify([data.project.market,data.project.language]);
+      byId('locale').value=locale;navigate();
+    }));
   }
   for(const ref of p.price_refs){const d=details('报价依据 · '+ref,box); priceCard(d,prices.get(ref));}
+  pageHandoff(box,p);
 }
 function renderWord(box,w) {
   box.append(node('h3',w.keyword),node('p',[w.market,w.language,title(w.role),title(w.coverage),title(w.origin)].join(' · '),'meta'));
@@ -209,19 +240,29 @@ function sourceRef(parent,family,ref) {
 }
 function navigate(replace=false) {
   const h=new URLSearchParams({view:mode});
+  if(mode==='opportunities'){h.set('status',opportunityFilter);if(opportunityId)h.set('item',opportunityId);if(byId('query').value)h.set('q',byId('query').value);}
+  if(mode==='overview') {
+    if(byId('priority').value)h.set('priority',byId('priority').value);
+    if(byId('query').value)h.set('q',byId('query').value);
+  }
   for (const [key,value] of Object.entries({page:mode==='pages'?activePage:selectedPage,value:selectedValue,plan:selectedPlan,word:selectedWord,
-    intent:selectedIntent,site:selectedSite,file:sourceId,row:sourceId?sourceRow:'',locale,term:selectedTerm?.term,
+    intent:selectedIntent,site:selectedSite,url:selectedUrl,file:sourceId,row:sourceId?sourceRow:'',locale,term:selectedTerm?.term,
     termMarket:selectedTerm?.market,termLang:selectedTerm?.language,dimension:selectedDimension?.dimension,
     dimMarket:selectedDimension?.market,dimLang:selectedDimension?.language})) if(value)h.set(key,value);
   if(location.hash.slice(1)!==h.toString())history[replace?'replaceState':'pushState'](null,'','#'+h);
-  byId('rail').classList.remove('open');byId('menu').setAttribute('aria-expanded','false');draw();window.scrollTo(0,0);
+  const hadMenu=byId('rail').classList.contains('open');
+  setMenu(false);draw();
+  if(hadMenu){byId('view-title').tabIndex=-1;byId('view-title').focus();}
+  if(!replace)window.scrollTo(0,0);
 }
 function restore() {
   const h=new URLSearchParams(location.hash.slice(1)),v=h.get('view');
-  reset(modes[v]?v:'pages');
+  reset(Object.hasOwn(modes,v)?v:'overview');
+  if(mode==='opportunities'){opportunityFilter=Object.hasOwn(opportunityFilters,h.get('status'))?h.get('status'):'all';opportunityId=h.get('item')||'';byId('query').value=h.get('q')||'';}
+  if(mode==='overview'){byId('query').value=h.get('q')||'';byId('priority').value=h.get('priority')||'';}
   if(mode==='pages')revealPage(h.get('page')||'');else selectedPage=h.get('page')||'';
   selectedWord=h.get('word')||'';selectedIntent=h.get('intent')||'';selectedValue=h.get('value')||'';selectedPlan=h.get('plan')||'';
-  selectedSite=h.get('site')||'';sourceId=h.get('file')||'';sourceRow=Math.max(1,Number(h.get('row'))||1);
+  selectedSite=h.get('site')||'';selectedUrl=mode==='urls'?(h.get('url')||''):'';sourceId=h.get('file')||'';sourceRow=Math.max(1,Number(h.get('row'))||1);
   if(h.has('term'))selectedTerm={term:h.get('term'),market:h.get('termMarket'),language:h.get('termLang')};
   if(h.has('dimension'))selectedDimension={dimension:h.get('dimension'),market:h.get('dimMarket'),language:h.get('dimLang')};
   locale=h.get('locale')||'';byId('locale').value=locale;byId('page').value=selectedPage;draw();
@@ -319,11 +360,98 @@ function renderInputList(box,rows){
       [r.provider,r.observed_at].filter(Boolean).join(' · '),a];
   })));
 }
+function planningTable(box,items) {
+  const headers=['页面和所属栏目','分到本页的词','页面职责','计划安排'];
+  const rows=items.map(p=>{
+    const name=node('div'), parent=pageById.get(p.parent_id);
+    name.append(cellButton(pageName(p),()=>openPage(p.id)),node('small',parent?'上级 · '+pageName(parent):'顶层页面'));
+    if(p.url)name.append(node('span',new URL(p.url).pathname,'pathname'));
+    const words=wordsByPage.get(p.id)||[],terms=node('div');
+    if(p.primary_keyword)terms.append(node('strong',p.primary_keyword));
+    const extra=words.find(w=>w.keyword!==p.primary_keyword);
+    if(extra)terms.append(node('small',extra.keyword));
+    if(words.length)terms.append(cellButton('查看全部 '+words.length+' 个词',()=>openWords({page:p.id})));
+    else terms.append(node('small','暂无已分配词'));
+    const status=node('div');
+    status.append(chip(title(p.approval)),node('small',[p.page_action && title(p.page_action),p.priority].filter(Boolean).join(' · ')));
+    if(p.priority_reason && p.priority_reason!==p.objective)status.append(node('small',p.priority_reason));
+    return [name,terms,p.objective,status];
+  });
+  const table=tableBox(headers,rows);
+  table.classList.add('planning-list');
+  for(const row of table.querySelectorAll('tbody tr'))row.cells[2].dataset.label=headers[2];
+  box.append(table);
+}
+
+function handoffSource() {
+  const directory=architectureVersion.directory;
+  if(!directory)return '请以我所附的这份完整工作台目录作为 --source，并从同目录读取词库、模块和同类页依据。';
+  if(architectureVersion.role==='adopted')return '从当前网站项目 AGENTS.md 的采用版索引读取本页。核对工作台目录为 '+directory+'，如果项目已换版，请标明原简报的版本后再交接。';
+  return '本次指定「'+architectureVersion.label+'」目录 '+directory+'。从网站项目根目录以 --source 指向这个目录，--library 指向其中的 clean-keywords.csv。按同目录索引读取模块和同类页依据。对已核同类网址用 --peer-url 和本目录的 received-rankings.csv 回查其排名。';
+}
+function pageHandoff(box,p) {
+  const panel=details('准备这页的 On-page 任务',box);
+  panel.classList.add('handoff');
+  const task=node('textarea');
+  task.readOnly=true;task.setAttribute('aria-label','本页 On-page 指令');
+  const sentences=[
+    '请用 $b2b-seo-onpage 优化「'+pageName(p)+'」'+(p.url?'（'+p.url+'）':'')+'。',
+    '站点 '+data.project.site_url+'，市场和语言 '+data.project.market+' / '+data.project.language+'。'+(data.project.mode==='simulation'?'本次使用模拟资料。':''),
+    handoffSource(),
+    '沿用页面规划、分组、行业词库及公司资料。核对同类竞品的具体排名 URL 和 Top Pages，保留相邻页的关键词归属。',
+    '请交付页面稿（Title、H1、Subtitle、H2 和正文）及关键词位置表，标出待核的企业事实。'
+  ];
+  if(p.primary_keyword)sentences.splice(2,0,'本页规划主词为 '+p.primary_keyword+'。');
+  if(p.approval!=='confirmed')sentences.push('当前页面规划尚待确认，请在稿件中保留这个状态。');
+  task.value=sentences.join('\n');panel.append(task);
+  const controls=node('div','','page-actions'),status=node('span','','muted');
+  status.setAttribute('role','status');
+  const copy=action('复制本页指令',async()=>{
+    try{await navigator.clipboard.writeText(task.value);status.textContent='已复制，可粘贴到此网站项目的 Codex 聊天。';}
+    catch{task.focus();task.select();status.textContent='已选中指令，可使用系统复制。';}
+  });
+  copy.className='primary';controls.append(copy,status);panel.append(controls);
+  const links=node('div','','page-actions'), brief=node('a','查看这页的建站设计简报');
+  brief.href='design.html#'+new URLSearchParams({view:'design',page:p.id});
+  links.append(brief);
+  if((wordsByPage.get(p.id)||[]).length)links.append(action('下载本页关键词 CSV',()=>downloadPageWords(p)));
+  box.append(links);
+}
+
+function downloadPageWords(page) {
+  const fields=[
+    'page_id','target_url','market','language','keyword_id','keyword','role','group_id','buyer_task',
+    'module_id','disposition','coverage','reason','remaining_need','dimension_value_ids','planning_ids',
+    'monthly_volume','monthly_volume_state','monthly_volume_basis','volume_group','monthly_volume_refs',
+    'kd','kd_state','kd_basis','kd_refs','source_classes','source_refs','ranked_urls','ranking_refs'
+  ];
+  const quoteCell=value=>{
+    let cell=value??'';
+    if(Array.isArray(cell))cell=cell.join('\n');
+    else if(typeof cell==='object')cell=JSON.stringify(cell);
+    return '"'+String(cell).replaceAll('"','""')+'"';
+  };
+  const rows=[fields];
+  for(const word of wordsByPage.get(page.id)){
+    const record={...word,
+      monthly_volume_basis:data.metric_bases[word.volume_basis_id],
+      kd_basis:data.metric_bases[word.kd_basis_id],
+      ranked_urls:[...new Set(word.ranking_refs.map(ref=>ranks.get(ref)?.url).filter(Boolean))]
+    };
+    rows.push(fields.map(key=>record[key]));
+  }
+  const csv='\uFEFF'+rows.map(row=>row.map(quoteCell).join(',')).join('\r\n')+'\r\n';
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),link=node('a');
+  link.href=url;link.download='page-'+page.id.replace(/[^\p{L}\p{N}._-]/gu,'_')+'-keywords.csv';
+  document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function requireData(mode){
-  return ({inputs:'附上本轮原始表或资料清单后，可在这里回查原行。',prices:'本轮输入没有商品报价记录。',
+  return ({opportunities:'此范围内没有建页机会。',inputs:'附上本轮原始表或资料清单后，可在这里回查原行。',prices:'本轮输入没有商品报价记录。',
     urls:'本轮输入没有对应的流量或排名快照。',sites:'本轮未提供竞品名单。'})[mode]||'当前范围没有匹配记录。';
 }
 function tableView(box,items) {
+  if(mode==='opportunities'){for(const opportunity of items)showOpportunity(box,opportunity);return;}
+  if(mode==='overview'){planningTable(box,items);return;}
   if(mode==='inputs'){renderInputList(box,items);return;}
   if(mode==='terms'){
     box.append(tableBox(['词或连续词组','不同查询数 DF','出现次数 TF','同口径词库','市场 / 语言'],items.map(t=>{
@@ -356,18 +484,34 @@ function hasPhrase(tokens,phrase) {
   return tokens.some((token,i)=>token===parts[0]&&parts.every((part,j)=>tokens[i+j]===part));
 }
 function draw() {
-  for(const b of byId('nav').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.mode===mode));
+  for(const b of byId('nav').querySelectorAll('button')){
+    const selected=b.dataset.mode===mode;b.setAttribute('aria-pressed',String(selected));
+    if(selected)b.parentElement.open=true;
+  }
+  opportunityOverview();
   byId('view-title').textContent=modes[mode];byId('view-desc').textContent=captions[mode];
   byId('page-field').hidden=!scopeModes.has(mode);byId('term-field').hidden=mode!=='terms';
   byId('locale-field').hidden=!['terms','intents','values','coverage','decisions','groups','prices','urls'].includes(mode);
-  byId('metrics').hidden=mode!=='pages';byId('pager').hidden=false;
+  byId('metrics').hidden=mode!=='pages'&&mode!=='overview';byId('pager').hidden=false;
+  byId('priority-field').hidden=mode!=='overview'||byId('priority').options.length<=2;
+  byId('query').placeholder=mode==='overview'?'输入页面名称、网址或分到本页的词':'搜索当前视图';
   const q=byId('query').value.trim().toLowerCase(),box=byId('results'),focus=byId('focus');box.replaceChildren();focus.replaceChildren();
+  if(mode==='opportunities')opportunityTabs(focus);
   if(mode==='inputs'&&inputById.has(sourceId)){
     focus.append(action('返回全部原始资料',()=>{reset('inputs');navigate();}));
     const panel=node('article');box.append(panel);rawView(panel,inputById.get(sourceId));byId('pager').hidden=true;return;
   }
   const length=Number(byId('term-length').value);
   const filtered=data[mode].filter(r=>{
+    if(mode==='opportunities'){
+      if(opportunityFilter!=='all'&&opportunityState(r)!==opportunityFilter)return false;
+      return !q||[r.title,r.question,r.reason,...r.urls,...r.keyword_ids.map(k=>wordById.get(k)?.keyword)].join(' ').toLowerCase().includes(q);
+    }
+    if(mode==='overview'){
+      if(byId('priority').value && r.priority!==byId('priority').value)return false;
+      return !q || [pageName(r),r.url,r.primary_keyword,r.id].join(' ').toLowerCase().includes(q)
+        || (wordsByPage.get(r.id)||[]).some(w=>w.keyword.toLowerCase().includes(q));
+    }
     if(mode==='decisions' && selectedWord && r.keyword_id!==selectedWord)return false;
     if(selectedPage && mode!=='pages' && r.page_id!==selectedPage)return false;
     if(selectedValue && !r.dimension_value_ids.includes(selectedValue))return false;
@@ -377,15 +521,20 @@ function draw() {
     if(selectedIntent && r.group_id!==selectedIntent)return false;
     if(selectedTerm && (r.market!==selectedTerm.market||r.language!==selectedTerm.language||!hasPhrase(data.tokens[r.keyword_id]||[],selectedTerm.term)))return false;
     if(selectedSite && r.competitor_id!==selectedSite)return false;
+    if(selectedUrl && r.url!==selectedUrl)return false;
     if(mode==='terms' && length && r.ngram!==length)return false;
     if(locale&&!byId('locale-field').hidden && JSON.stringify([r.market,r.language])!==locale)return false;
     return !q || (mode==='decisions'? [r.keyword,r.keyword_id,r.buyer_task,r.target_url,r.module_id].join(' '):
       mode==='terms'?r.term:mode==='inputs'?[r.name,r.label,r.kind,r.provider].join(' '):JSON.stringify(r)).toLowerCase().includes(q);
   });
-  if(selectedWord||selectedValue||selectedPlan||selectedDimension||selectedIntent||selectedTerm||selectedSite){
+  if(selectedWord||selectedValue||selectedPlan||selectedDimension||selectedIntent||selectedTerm||selectedSite||selectedUrl){
     const tag=selectedTerm?.term||selectedDimension?.dimension||valueById.get(selectedValue)?.value||
-      groupById.get(selectedIntent)?.buyer_task||wordById.get(selectedWord)?.keyword||selectedSite||'选定拆并组';
+      groupById.get(selectedIntent)?.buyer_task||wordById.get(selectedWord)?.keyword||selectedSite||selectedUrl||'选定拆并组';
     focus.append(chip(tag),action('清除选定范围',()=>{reset(mode);navigate();}));
+  }
+  if(mode==='opportunities' && opportunityId){
+    const index=filtered.findIndex(r=>r.id===opportunityId);
+    if(index>=0 && (index<offset||index>=offset+size))offset=Math.floor(index/size)*size;
   }
   if(mode==='pages'&&filtered.length){
     const core=filtered.filter(p=>p.page_type!=='article');
@@ -400,6 +549,7 @@ function draw() {
     for(const s of data.source_notes){line(notes,s.label,[title(s.kind),s.scope,s.reference]);}
   }
   byId('count').textContent=filtered.length ? (offset+1)+'–'+Math.min(offset+size,filtered.length)+' / '+filtered.length : '0 项';
+  if(filtered.length<=size)byId('pager').hidden=true;
   byId('prev').disabled=offset===0;byId('next').disabled=offset+size>=filtered.length;
 }
 Object.assign(labels,{keywords:'词库原表',rankings:'逐词排名',pages:'流量页面',prices:'商品报价',material:'客户资料',
@@ -411,13 +561,13 @@ Object.assign(labels,{keywords:'词库原表',rankings:'逐词排名',pages:'流
   model_inference:'推断候选',historical_sample:'历史资料',browser_observation:'实访',partial:'拟部分承接',
   observed:'已实访',simulated:'模拟观察',blocked:'访问受阻',not_started:'尚未实访'});
 byId('project').textContent=data.project.name;
-byId('status').textContent=(data.project.mode==='simulation'?'教学模拟 · ':'')+'目标 '+data.project.market+' / '+data.project.language;
+byId('status').textContent=(data.project.mode==='simulation'?'模拟项目 · ':'')+'目标 '+data.project.market+' / '+data.project.language;
 for(const [label,num] of [['核心页',data.pages.filter(p=>p.page_type!=='article').length],['全库查询',data.summary.keywords],
   ['采购任务组',data.intents.length],['接收文件记录',data.inputs.length]]){
   const m=node('span');m.append(node('b',num),label);byId('metrics').append(m);
 }
 for(const [section,views] of Object.entries(sections)){
-  const group=node('div','','navgroup');group.append(node('span',section));
+  const group=node('details','','navgroup');group.open=views.includes('overview');group.append(node('summary',section));
   for(const view of views){const b=action(modes[view],()=>{reset(view);navigate();});b.dataset.mode=view;group.append(b);}
   byId('nav').append(group);
 }
@@ -430,17 +580,36 @@ byId('page').append(new Option('全部页面',''));for(const p of data.pages)byI
 byId('page').addEventListener('change',e=>{selectedPage=e.target.value;offset=0;navigate(true);});
 byId('locale').addEventListener('change',e=>{locale=e.target.value;offset=0;navigate(true);});
 byId('term-length').addEventListener('change',()=>{offset=0;draw()});
-byId('query').addEventListener('input',()=>{offset=0;draw()});
-byId('prev').addEventListener('click',()=>{offset=Math.max(0,offset-size);draw()});
-byId('next').addEventListener('click',()=>{offset+=size;draw()});
-byId('menu').addEventListener('click',()=>{const open=byId('rail').classList.toggle('open');byId('menu').setAttribute('aria-expanded',String(open));if(open)byId('rail').querySelector('button').focus();});
-byId('close-menu').addEventListener('click',()=>{byId('rail').classList.remove('open');byId('menu').setAttribute('aria-expanded','false');byId('menu').focus();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){byId('rail').classList.remove('open');byId('menu').setAttribute('aria-expanded','false');if(window.innerWidth<=740)byId('menu').focus();}});
+for(const priority of new Set(data.overview.map(p=>p.priority).filter(Boolean)))byId('priority').append(new Option(priority,priority));
+byId('priority').addEventListener('change',()=>{offset=0;navigate(true);});
+byId('query').addEventListener('input',()=>{offset=0;if(mode==='overview'||mode==='opportunities')navigate(true);else draw();});
+byId('prev').addEventListener('click',()=>{opportunityId='';offset=Math.max(0,offset-size);draw()});
+byId('next').addEventListener('click',()=>{opportunityId='';offset+=size;draw()});
+function setMenu(open){
+  byId('rail').classList.toggle('open',open);byId('menu').setAttribute('aria-expanded',String(open));
+  byId('nav-shade').hidden=!open;document.querySelector('.desk').inert=open;
+  if(open)byId('close-menu').focus();
+}
+function closeMenu(){setMenu(false);byId('menu').focus();}
+byId('menu').addEventListener('click',()=>setMenu(true));
+byId('close-menu').addEventListener('click',closeMenu);
+byId('nav-shade').addEventListener('click',closeMenu);
+matchMedia('(max-width:740px)').addEventListener('change',event=>{if(!event.matches)setMenu(false);});
+document.addEventListener('keydown',e=>{
+  if(!byId('rail').classList.contains('open'))return;
+  if(e.key==='Escape'){closeMenu();return;}
+  if(e.key==='Tab'){
+    const controls=[...byId('rail').querySelectorAll('button, summary, a')].filter(el=>el.getClientRects().length);
+    if(e.shiftKey&&document.activeElement===controls[0]){e.preventDefault();controls.at(-1).focus();}
+    else if(!e.shiftKey&&document.activeElement===controls.at(-1)){e.preventDefault();controls[0].focus();}
+  }
+});
 for(const [name,label] of Object.entries({'clean-keywords':'整理后原词库','words-and-phrases':'全量词频与词组','intent-groups':'整句意图组',
-  'pages':'页面规划','keyword-decisions':'逐词归属','commercial-planning':'商业页面拆并','demand-coverage':'覆盖统计','dimension-values':'属性与取值',
+  'pages':'页面规划','page-opportunities':'建页机会','keyword-decisions':'逐词归属','commercial-planning':'商业页面拆并','demand-coverage':'覆盖统计','dimension-values':'属性与取值',
   'content-modules':'内容模块','received-rankings':'收到的排名','comparable-pages':'同类竞品依据','price-observations':'商品价格','input-files':'来源目录'})){
   const a=node('a',label);a.href=name+'.csv';a.download='';byId('files').append(a);
 }
+document.addEventListener('architecture-version-ready',()=>{if(mode==='pages')draw();});
 window.addEventListener('popstate',restore);restore();
 </script>
 </body>

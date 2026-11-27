@@ -9,7 +9,7 @@
 - `references/`：接收、研究、命名/层级/属性、规模分析、输出与设计交接规范。
 - `scripts/` 包含四个可执行 Python 工具及随包的规划记录、指标、交付、工作台数据及客户项目登记模块。本包携带 `library.py` 1.2.0 和 `cluster.py` 1.1.2。
 - `examples/`：明确合成的最小有效计划和关键词CSV，用于理解字段与运行基本结构检查，不含客户资料或完整网站建议。
-- `assets/architecture-view.html` 与 `assets/search-plan.html` 是离线设计简报及工作台使用的 HTML 模板。
+- `assets/architecture-view.html` 与 `assets/search-plan.html` 是离线设计简报及工作台使用的 HTML 模板。相邻的 JS 和 CSS 组件在生成时嵌入 HTML。
 - 根README、版本记录、文件摘要、本说明和明确标注为MOCK的截图。
 
 ## 保留在维护环境

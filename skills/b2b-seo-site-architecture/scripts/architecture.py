@@ -20,12 +20,12 @@ from plan_records import (
     Row as Row, active_design_modules as active_design_modules, index as index, obj as obj,
     optional_records as optional_records, records as records, require as require, strings as strings, text as text,
 )
-from search_plan import SearchPlan
+from search_plan import SearchPlan, workbench_template
 from register_project import register
 from seo_project import project_for
 
 VERSION = "0.5.0"
-TOOL_VERSION = "0.6.0"
+TOOL_VERSION = "0.7.0"
 BILINGUAL_VERSIONS = {"0.4.0", VERSION}
 DESIGN_VERSIONS = {"0.3.0", *BILINGUAL_VERSIONS}
 SUPPORTED_VERSIONS = {"0.1.0", "0.2.0", *DESIGN_VERSIONS}
@@ -962,8 +962,9 @@ def viewer_payload(payload: Row, keywords: dict[str, dict[str, str]]) -> Row:
 
 
 def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analysis_dir: Path | None = None,
-                         materials: Path | None = None, project_root: Path | None = None) -> Row:
+                         materials: Path | None = None, project_root: Path | None = None, *, adopt: bool = False) -> Row:
     project_root = project_root or project_for(out.parent)
+    require(not adopt or project_root is not None, "Adopting a revision requires its website project root")
     if project_root and (not project_root.is_dir() or not out.resolve().is_relative_to(project_root.resolve())):
         raise ValueError("Place the workbench inside the selected website project")
     require(not out.exists(), "Choose a new output directory; existing outputs are preserved")
@@ -1033,7 +1034,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
         str(p.resolve()): hashlib.sha256(p.read_bytes()).hexdigest() for p in (plan_path, keywords_path)
     }
     asset = Path(__file__).resolve().parents[1] / "assets/architecture-view.html"
-    template_html = asset.read_text(encoding="utf-8")
+    template_html = workbench_template(asset)
     require(template_html.count("__ARCHITECTURE_DATA__") == 1, "Viewer data placeholder missing or repeated")
     core_rows = [p for p in page_rows if p.get("page_type") != "article"]
     article_rows = [p for p in page_rows if p.get("page_type") == "article"]
@@ -1131,7 +1132,7 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
         stage.rename(out)
     if project_root:
         try:
-            validation["project_index"] = str(register(project_root, out))
+            validation["project_index"] = str(register(project_root, out, adopt=adopt))
         except (OSError, ValueError, KeyError) as exc:
             raise ValueError(f"Workbench saved at {out}; project registration failed: {exc}. "
                              "Use --register-existing with --project-root to retry.") from exc
@@ -1146,6 +1147,7 @@ def main() -> int:
                       help="Register a completed workbench, including a v0.5.x delivery")
     parser.add_argument("--keywords", type=Path)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--adopt", action="store_true", help="Use this revision as the project's selected plan")
     parser.add_argument("--project-root", type=Path, help="Customer Codex website project containing the workbench")
     parser.add_argument("--analysis-dir", type=Path,
                         help="Selected current analysis runs to copy with the final HTML, including page traffic")
@@ -1156,12 +1158,13 @@ def main() -> int:
             root = args.project_root or project_for(args.register_existing) or project_for(Path.cwd())
             if not root:
                 parser.error("Specify the customer's --project-root to register this delivery")
-            print(json.dumps({"project_index": str(register(root, args.register_existing))}, ensure_ascii=False))
+            print(json.dumps({"project_index": str(register(root, args.register_existing, adopt=args.adopt))}, ensure_ascii=False))
             return 0
         if not args.keywords or not args.out:
             parser.error("--plan requires --keywords and --out")
         root = args.project_root or project_for(Path.cwd())
-        result = compile_architecture(args.plan, args.keywords, args.out, args.analysis_dir, args.materials, root)
+        result = compile_architecture(args.plan, args.keywords, args.out, args.analysis_dir, args.materials, root,
+                                      adopt=args.adopt)
     except (OSError, ValueError, KeyError) as exc:
         print(json.dumps({"status": "failed", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1

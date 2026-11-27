@@ -4,6 +4,8 @@
 
 ## 面向用户的交付包
 
+打开 `index.html` 会先看到网站页面规划表。用页面名称、网址或已分配的查询查找，点击页面名即可查看采购任务、关键词归属、模块和相邻页。单页的「准备这页的 On-page 任务」可复制带网址、市场、语言的指令，拟议页会注明待确认。用户可下载本页关键词 CSV，核对每个词的采购任务、模块、搜索量与 KD 的口径和来源、竞品排名网址及归属理由。建站设计简报按同一页号打开。项目根目录 `AGENTS.md` 指向原件和完整分析表。移交离线成果时交付整个工作台目录。
+
 先把成果解释成四项核心规划与两项配套材料，再提供文件。多个成果可以在同一个HTML入口中查看，不必凑成六个独立文档。
 
 | 成果 | 用户实际得到什么 | 主要载体 |
@@ -142,4 +144,11 @@ v0.5.x 已交付的完整工作台可直接登记，无需重新跑大词库。�
 python3 SKILL_DIR/scripts/architecture.py --project-root "/客户建站项目" --register-existing "/客户建站项目/docs/seo/本次成果"
 ```
 
-根 AGENTS.md 只维护 `<!-- b2b-seo:architecture:start -->` 与 `<!-- b2b-seo:architecture:end -->` 之间的内容。每个站点、市场、语言及资料性质（真实或模拟）对应一个当前工作台。更新同一范围的指针时，旧目录和其他范围的登记仍可使用。索引中的表名和原件路径相对工作台目录，AGENTS.md 的链接相对项目根目录。按实收清单归档客户材料，外部原件随包保留副本；未附入的原件在索引里标注 catalog_only。项目原件留在客户项目内。
+根 AGENTS.md 只维护 `<!-- b2b-seo:architecture:start -->` 与 `<!-- b2b-seo:architecture:end -->` 之间的内容。每个站点、市场、语言及资料性质可有多份草案与历史版，并可选一份当前采用版。索引中的表名和原件路径相对工作台目录，AGENTS.md 的链接相对项目根目录。按实收清单归档客户材料，外部原件随包保留副本；未附入的原件在索引里标注 catalog_only。项目原件留在客户项目内。
+
+
+### 建页机会与方案选择
+
+`page-opportunities.csv` 和 HTML「建页机会」共用记录。可选计划数组 `page_opportunities` 每项填写 `id, title, status, reason`。待核状态 `pending`（待企业确认）和 `research`（待补研究）另写具体 `question`。取舍状态为 `page, section, filter, deferred, excluded`。前三种提供有效的 `page_id`。依据可用 `urls, keyword_ids, offering_ids, evidence_ids` 数组。每项至少关联页面或一项依据。登记过的 Top Pages URL 会带出对应市场的全部原行引用。没有逐词明细的流量页也能作为机会。关联到同一采购问题时用一条显式记录归并。生成器补出尚未处理的条件页、业务缺口、暂缓词组和无逐词明细的同行流量页。
+
+新工作台默认登记为草案。只有用户选用时加 `--adopt`。根文件的 `SEO project index` 唯一指向该范围采用版，`SEO draft index` 用于指定审阅，`SEO previous index` 供回看。旧版的已有当前指针沿用。日常 On-page 和 WordPress Builder 都从当前索引开始，审阅指定版的 On-page 用该目录的 `--source`、词库及证据。页级确认独立保存在页面规划内。工作台可切换版本并对照同一范围内的页面、机会和取舍变化。用户可以移动整个项目，保留各版的相对位置和根目录的 `.seo-architecture`。只复制一个工作台时，HTML 显示独立快照。

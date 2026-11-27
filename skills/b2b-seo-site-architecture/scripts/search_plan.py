@@ -12,7 +12,18 @@ from demand_metrics import comparable_metrics, totals
 from keyword_evidence import PRICE_FIELDS, RANK_FIELDS, url_summary
 from library import normalize, stable_id
 from workbench_data import keyword_analysis, save_term_table, script_json, source_catalog
+from opportunities import FIELDS as OPPORTUNITY_FIELDS, build_opportunities
 from plan_records import Row, active_design_modules, index, obj, optional_records, records, require, strings, text
+
+
+def workbench_template(asset: Path) -> str:
+    template = asset.read_text(encoding="utf-8")
+    components = {"/* __REVIEW_LAYOUT__ */": "review-layout.css", "/* __VERSION_PANEL__ */": "version-panel.js",
+                  "/* __OPPORTUNITIES__ */": "page-opportunities.js"}
+    for marker, filename in components.items():
+        if marker in template:
+            template = template.replace(marker, asset.with_name(filename).read_text(encoding="utf-8"))
+    return template
 
 
 def unique(values: list[str]) -> list[str]:
@@ -91,6 +102,7 @@ class SearchPlan:
             self.urls = [dict(u) for u in url_summary(received, [])]
         self._assign(plan, analysis)
         self._group(plan)
+        self.opportunities = build_opportunities(plan, self.decisions, analysis.pages, self.ranks, self.comparisons)
         buckets: dict[tuple[str, str, str, str], list[str]] = defaultdict(list)
         for kid, d in self.decisions.items():
             buckets[str(d["market"]), str(d["language"]), str(d["origin"]), str(d["coverage"])].append(kid)
@@ -279,6 +291,7 @@ class SearchPlan:
         write_rows(stage / "input-files.csv", [{k: v for k, v in row.items() if k not in {"preview", "columns"}}
                                               for row in originals], ["id", "name", "source_id", "download", "sha256"])
         tables = [
+            ("page-opportunities", self.opportunities, OPPORTUNITY_FIELDS),
             ("demand-coverage", self.coverage, ["market", "language", "origin", "coverage", "query_count"]),
             ("commercial-planning", self.groups, ["planning_id", "value_id", "page_id", "group_id"]),
             ("dimension-values", self.values, ["level", "value_id", "dimension", "value", "market", "language", "query_count"]),
@@ -300,7 +313,8 @@ class SearchPlan:
         word_fields = ("keyword_id", "keyword", "market", "language", "role", "coverage", "origin", "group_id",
                        "buyer_task", "target_url", "page_id", "disposition", "module_id", "reason", "remaining_need",
                        "dimension_value_ids", "monthly_volume", "kd", "monthly_volume_state", "kd_state",
-                       "monthly_volume_refs", "kd_refs", "source_refs", "source_classes", "ranking_refs", "planning_ids")
+                       "monthly_volume_refs", "kd_refs", "source_refs", "source_classes", "ranking_refs", "planning_ids",
+                       "volume_group")
         packed_words: list[list[object]] = []
         for decision in self.decisions.values():
             cells = [decision.get(k, "") for k in word_fields]
@@ -317,7 +331,10 @@ class SearchPlan:
             packed_words.append(cells)
         rank_fields = ("source_ref", "keyword_id", "keyword_original", "provider", "competitor_id", "market", "language",
                        "observed_at", "url", "evidence_class", "position")
+        (stage / "workbench-context.js").write_text("window.architectureContext = null;\n", encoding="utf-8")
         payload = {"project": self.project, "summary": self.summary, "metric_bases": bases,
+                   "opportunities": self.opportunities,
+                   "opportunity_offers": {text(o, "id"): text(o, "label") for o in records(self.plan, "offerings")},
                    **analysis, "inputs": originals, "page_observations": self.analysis.pages,
                    "word_fields": [*word_fields, "volume_basis_id", "kd_basis_id"], "rank_fields": rank_fields,
                    "pages": [{k: p.get(k, "") for k in page_fields} for p in self.pages.values()],
@@ -326,7 +343,7 @@ class SearchPlan:
                    "values": self.values, "coverage": self.coverage, "prices": self.prices, "comparisons": self.comparisons,
                    "urls": self.urls, "rank_rows": [[r.get(k, "") for k in rank_fields] for r in self.ranks]}
         asset = Path(__file__).resolve().parents[1] / "assets/search-plan.html"
-        template = asset.read_text(encoding="utf-8")
+        template = workbench_template(asset)
         require(template.count("__SEARCH_PLAN__") == 1, "Search plan template placeholder missing or repeated")
         require(template.count("__ARCHITECTURE_DATA__") == 1, "Workbench architecture data placeholder missing")
         rendered = template.replace("__ARCHITECTURE_DATA__", architecture_json, 1)
