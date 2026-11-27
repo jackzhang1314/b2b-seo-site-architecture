@@ -1,8 +1,8 @@
 {
   "name": "b2b-seo-site-architecture",
-  "version": "0.5.0",
-  "tag": "v0.5.0",
-  "prepared_at": "2026-11-28T01:37:12+08:00",
+  "version": "0.5.1",
+  "tag": "v0.5.1",
+  "prepared_at": "2026-11-28T01:48:52+08:00",
   "repository": "https://github.com/jackzhang1314/b2b-seo-site-architecture",
   "skill_path": "skills/b2b-seo-site-architecture",
   "runtime_file_count": 24,
@@ -25,54 +25,36 @@
     "0.5.0"
   ],
   "validation": {
-    "architecture_regressions": 85,
-    "bundled_keyword_regressions": 24,
-    "strict_mypy": "passed: 9 runtime modules and new regression file",
-    "ruff": "passed",
+    "scope": "Instructions, references, invocation and distribution metadata",
     "skill_format": "passed",
-    "mock": {
-      "queries": 29,
-      "core_pages": 17,
-      "page_modules": 86,
-      "ranking_rows": 16,
-      "page_traffic_rows": 3,
-      "offer_rows": 2,
-      "classroom_generated_price_queries": 4
-    },
-    "workbench": {
-      "offline_views_desktop_mobile": 11,
-      "source_download_byte_match": true,
-      "large_queries": 50000,
-      "large_original_row_located": 1001,
-      "large_rankings": 100000,
-      "page_only_traffic_to_source_row": true,
-      "supplementary_document_new_tab": true,
-      "collapsible_page_tree": true
-    },
-    "onpage_readback": {
-      "page_id": "M04",
-      "assigned_queries": 5
-    },
-    "limits": [
-      "Synthetic inputs and reviewed classroom decisions",
-      "Existing host and browser; offline workflow, no SEO outcome measured"
-    ]
+    "relative_markdown_links": 37,
+    "vendor_guide_links": 9,
+    "checked_intake_cases": [
+      "factory_only",
+      "complete",
+      "only_one_page_report_missing",
+      "wider_original"
+    ],
+    "checked_against": "Local mock source tables and official documentation",
+    "live_authenticated_export": "not performed",
+    "runtime_baseline": "v0.5.0",
+    "previous_runtime_acceptance": "https://github.com/jackzhang1314/b2b-seo-site-architecture/blob/v0.5.0/RELEASE.json"
   },
   "files_sha256": {
     ".gitignore": "86405ec41092858d23bc63d895a93c2539797668372d61fff158ca0c18798c93",
-    "CHANGELOG.md": "1b313bb9757e07c6ee5789b95f8058a0f0e158a252573d647fe74f0f064ff8ca",
-    "README.md": "70422b2d8de7f191640360c4f06b30f07f7a686034ba1419cba68579190cb616",
+    "CHANGELOG.md": "58552b8bf3fea6af566abcda3b41e90edc2e40d59014f1333d8b34376e42408c",
+    "README.md": "a2a574c4bb9d2d81c1ee9dd1ff52d6a323b8ec378f0d0153be240ccb666fe627",
     "docs/PUBLISHING.md": "d9b91202689bcbedc3521bfedfecb6a2f53e7518dcf57b02a0f65dca75fb1747",
     "docs/architecture-example.png": "1bd7ad71a43c929b5845ba034e094f4accff59a24e11d4805dec9d62d15cbeb6",
     "docs/workbench-example.png": "20ca8eed393d69eb7471c036221b3f5a0d37e701acd8b13999241cc68355f119",
-    "skills/b2b-seo-site-architecture/SKILL.md": "ca51cf34be4ec11b2b3d6020ffb5f73bbb0135102ae02ba052356534091c92a7",
-    "skills/b2b-seo-site-architecture/agents/openai.yaml": "f5991b413bdbbf7dc0ff2d0cf6a7f21dcc060378070184924ff7d83ed4c12f40",
+    "skills/b2b-seo-site-architecture/SKILL.md": "a9b9e618a90296c0a587df068138fe9cbbe9a467b520a3d5a2823146e7c4c3ed",
+    "skills/b2b-seo-site-architecture/agents/openai.yaml": "fc709f594bda060fcd4ec8c6210013da44bbc750af13604e55407b2145c4e42d",
     "skills/b2b-seo-site-architecture/assets/architecture-view.html": "880edab44f4b82662bfc482b8184851445fbb87620401ee38c292db6fc1c5b9c",
     "skills/b2b-seo-site-architecture/assets/search-plan.html": "193d8f1f0a05d23cf7e72ec24ce90ff59a821c23ea546dfde041a3b911fc6c80",
     "skills/b2b-seo-site-architecture/examples/keywords.csv": "d539726e39062dc4871bc947afeb91948e18194f28f3c7ea61fdfe347769655e",
     "skills/b2b-seo-site-architecture/examples/minimal-plan.json": "915599094c11e7170cd1407da4d9b01d4d6e843a968ba7f3ef076c78d4cf4fbf",
-    "skills/b2b-seo-site-architecture/references/data-collection-guide.md": "f57b0f45b71f6b99ec79edad9f42ce466231110656bf2e88587bfe61f56ddf9c",
-    "skills/b2b-seo-site-architecture/references/intake-and-research.md": "6d4095f3dda5faf8c4edd28803140b2dffbd46aa8786d53c52d3caf06a6bb0df",
+    "skills/b2b-seo-site-architecture/references/data-collection-guide.md": "015b4b58e9635f7abff8547523bd1dfe347cdf3c92494b7aa15ad4c956fae9e6",
+    "skills/b2b-seo-site-architecture/references/intake-and-research.md": "b287a2fd338eaaba4bc2ef9ecb82a6c8846c9ed9816d6fb4c366ccc8a7c812c0",
     "skills/b2b-seo-site-architecture/references/language-hierarchy-and-attributes.md": "73c15eb5d7427669ace60ac8dd73ad1dc1507e30fcc218841d24c6ed9459a1dc",
     "skills/b2b-seo-site-architecture/references/large-keyword-workflow.md": "4f0c59268f81eb3e7b3b20d3e5d540c6f259ae9567f0659925b9ff3de25a552a",
     "skills/b2b-seo-site-architecture/references/minimal-example.md": "48af1303d874405f2f5b1341c65e833cfa9d7c6091e7fa5b64049cb58804e6c9",
