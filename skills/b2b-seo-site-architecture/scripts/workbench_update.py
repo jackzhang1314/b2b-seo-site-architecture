@@ -11,14 +11,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from page_confirmation import FILENAME, encode, normalize_handoff, read_handoff
-from plan_records import Row, index, obj, records, require, text
+from plan_records import Row, index, obj, records, require, strings, text
 from register_project import atomic_write, project_lock
-from revisions import normalized_url as normalized_url, page_signatures, read_delivery_rows, read_revisions
+from revisions import keyword_changes, normalized_url as normalized_url, page_signatures, read_delivery_rows, read_revisions
 from seo_project import INDEX, local_file, project_for
 from update_inputs import preserve_received
+from workbench_decisions import pending_resolution
 
 CHOICES_AND_RECEIPTS = ("decision", "decision_version", "decided_at", "seo_decision", "seo_version",
                         "seo_decided_at", "choice_history", "history")
+CONTEXT_CHOICES = ("demand_resolution", "demand_version", "business_answer", "business_version")
 
 
 def project_scope(project: Row) -> tuple[str, str, str, str]:
@@ -58,16 +60,66 @@ def checked_handoff(folder: Path, raw: bytes | None = None) -> Row:
     return data
 
 
-def state_digest(data: Row) -> str:
+def state_digest(data: Row, version: int = 2) -> str:
     pages = index(records(data, "pages"))
     fields = ("id", "url", "page_type", *CHOICES_AND_RECEIPTS, "revision_review")
+    if version == 2:
+        fields = (*fields, *CONTEXT_CHOICES, "onpage_review_after")
+    elif version != 1:
+        raise ValueError("Unknown workbench update digest version")
+    rows = [{k: pages[pid].get(k) for k in fields} for pid in sorted(pages)]
+    for row in rows:
+        if isinstance(row["revision_review"], dict):
+            # A read-only explanation can be reconstructed when a legacy editor is upgraded.
+            row["revision_review"] = {k: v for k, v in obj(row["revision_review"]).items() if k != "keyword_changes"}
     payload = [data["revision_id"], data["change_number"], project_scope(obj(data["project"])),
-               [{k: pages[pid].get(k) for k in fields} for pid in sorted(pages)]]
+               rows]
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=True, allow_nan=False).encode()).hexdigest()
 
 
 def planning_digest(signatures: dict[str, tuple[str, str]]) -> str:
     return hashlib.sha256(json.dumps(signatures, ensure_ascii=True, sort_keys=True).encode()).hexdigest()
+
+
+def reconcile_resolutions(old: dict[str, Row], current: dict[str, Row], revision: str) -> None:
+    """A saved transfer names a particular target page, section and set of queries."""
+    def incoming(pages: dict[str, Row]) -> dict[str, set[tuple[str, str]]]:
+        result: dict[str, set[tuple[str, str]]] = defaultdict(set)
+        for p in pages.values():
+            resolution = obj(p.get("demand_resolution", {}))
+            if p.get("decision") == "skip" and resolution.get("action") == "merge":
+                pid, module = text(resolution, "target_page_id"), text(resolution, "target_module_id")
+                if pid in pages and pages[pid].get("decision") != "skip":
+                    result[pid].update((kid, module) for kid in strings(resolution, "keyword_ids"))
+        return result
+
+    for page in current.values():
+        resolution = obj(page.get("demand_resolution", {}))
+        if not resolution or resolution.get("action") == "pending":
+            continue
+        ids = set(strings(page, "assigned_keyword_ids"))
+        members = [kid for kid in strings(resolution, "keyword_ids") if kid in ids]
+        valid = bool(members)
+        if resolution.get("action") == "merge":
+            pid = text(resolution, "target_page_id")
+            target = current.get(pid)
+            valid = (valid and pid in old and target is not None and target["decision"] != "skip"
+                     and obj(target.get("revision_review", {})).get("status") in {"unchanged", "changed"}
+                     and resolution.get("target_module_id") in strings(target, "module_ids"))
+        if valid:
+            page["demand_resolution"] = {**resolution, "keyword_ids": members}
+        else:
+            page["demand_resolution"] = pending_resolution()
+    before, after = incoming(old), incoming(current)
+    for pid in before.keys() | after.keys():
+        if before.get(pid, set()) == after.get(pid, set()) or pid not in current:
+            continue
+        page = current[pid]
+        review = obj(page.get("revision_review", {}))
+        if review.get("status") in {"unchanged", "changed"}:
+            page["onpage_scope_revisions"] = [revision]
+            page["revision_review"] = {**review, "status": "changed", "changed_in": revision,
+                                       "reason": "本版并入此页章节的采购词有调整。"}
 
 
 @dataclass
@@ -108,6 +160,8 @@ class UpdateBase:
             for pid, page in collection.items():
                 target[page_key(page)[0]].append(pid)
         signatures = page_signatures(stage)
+        changes = keyword_changes(self.folder, stage)
+        revision = text(new, "revision_id")
         for pid, page in current.items():
             url, kind = page_key(page)
             prior = old.get(pid)
@@ -127,29 +181,40 @@ class UpdateBase:
                 status = "conflict"
                 review["reason"] = "页面编号和网址相同，页型已改变。"
             else:
-                for key in CHOICES_AND_RECEIPTS:
-                    page[key] = prior[key]
+                for key in (*CHOICES_AND_RECEIPTS, *CONTEXT_CHOICES):
+                    if key in prior:
+                        page[key] = prior[key]
                 status = "unchanged" if signatures[pid][1] == self.signatures[pid][1] else "changed"
+                if status == "unchanged":
+                    page["onpage_scope_revisions"] = [*strings(prior, "onpage_scope_revisions"), revision]
+                    if prior.get("onpage_review_after"):
+                        page["onpage_review_after"] = prior["onpage_review_after"]
                 prior_review = obj(prior.get("revision_review", {}))
                 if status == "changed":
                     review["changed_in"] = new["revision_id"]
+                    if pid in changes:
+                        review["keyword_changes"] = changes[pid]
                     labels = {"objective": "页面职责", "boundary": "相邻页边界", "module_ids": "内容模块",
                               "primary_keyword": "主词", "comparable_urls": "同类页依据", "template_id": "模板",
                               "parent_id": "层级", "fact_gaps": "企业资料缺口", "priority": "优先级"}
                     changed = [label for key, label in labels.items() if prior.get(key) != page.get(key)]
                     review["reason"] = ("本版已调整" + "、".join(changed) + "。" if changed else
                                         "本版调整了逐词归属、采购问题、页面简报或同类页依据。")
-                elif prior_review.get("status") == "changed":
+                elif prior_review.get("status") == "changed" and prior.get("onpage_alignment") != "aligned":
                     # Earlier verified work remains factual. Further unchanged revisions keep its review context.
                     review["changed_in"] = prior_review.get("changed_in", self.data["revision_id"])
                     review["reason"] = prior_review.get("reason", "上版的内容调整已延续到本版。")
+                    if prior_review.get("keyword_changes"):
+                        review["keyword_changes"] = prior_review["keyword_changes"]
                     status = "changed"
             review["status"] = status
             page["revision_review"] = review
+        reconcile_resolutions(old, current, revision)
         new["pages"] = list(current.values())
         new["update_from"] = {"revision_id": self.data["revision_id"],
                               "directory": Path(os.path.relpath(self.folder, out.resolve())).as_posix(),
                               "change_number": self.data["change_number"], "state_sha256": self.digest,
+                              "state_digest_version": 2,
                               "planning_sha256": planning_digest(self.signatures), "data_changes": data_changes,
                               "removed_pages": [ref(p) for k, p in old.items() if k not in current]}
         atomic_write(path, encode(normalize_handoff(new)), original)
@@ -184,7 +249,10 @@ def verify_update_base(root: Path, folder: Path, source_locks: ExitStack | None 
             # A 0.8 editor takes only the folder lock. Hold it through the caller's adoption transaction.
             source_locks.enter_context(project_lock(previous))
         latest = checked_handoff(previous)
-        require(latest["revision_id"] == source["revision_id"] and state_digest(latest) == source["state_sha256"]
+        version = source.get("state_digest_version", 1)
+        if type(version) is not int:
+            raise ValueError("Invalid workbench update digest version")
+        require(latest["revision_id"] == source["revision_id"] and state_digest(latest, version) == source["state_sha256"]
                 and planning_digest(page_signatures(previous)) == source["planning_sha256"],
                 f"The previous workbench {previous.name} has newer choices or receipts. Keep both versions, "
                 "compare their page records, and compile a new directory using --update-from with the latest baseline. "

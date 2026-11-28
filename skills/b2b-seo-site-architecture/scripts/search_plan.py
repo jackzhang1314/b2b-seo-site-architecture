@@ -8,10 +8,10 @@ from pathlib import Path
 
 from cluster import TOKEN
 from delivery import AnalysisDelivery
-from demand_metrics import comparable_metrics, totals
-from keyword_evidence import PRICE_FIELDS, RANK_FIELDS, url_summary
+from demand_metrics import Basis, MetricSnapshots, Scope, totals
+from keyword_evidence import GROUP_CONTEXT, PRICE_FIELDS, RANK_FIELDS, url_summary
 from library import normalize, stable_id
-from workbench_data import keyword_analysis, save_term_table, script_json, source_catalog
+from workbench_data import TERM_METRICS, keyword_analysis, save_term_table, script_json, source_catalog
 from opportunities import FIELDS as OPPORTUNITY_FIELDS, build_opportunities
 from plan_records import Row, active_design_modules, index, obj, optional_records, records, require, strings, text
 
@@ -67,11 +67,36 @@ def dimension_members(values: dict[str, Row], decisions: dict[str, Row]) -> dict
     return {vid: list(ids) for vid, ids in assigned.items()}
 
 
+# Only unambiguous observed page labels participate in this check. Custom industry terms retain their review text.
+PAGE_FAMILIES = {
+    "category": ("category", "category overview", "collection", "category page", "product category", "collection page",
+                 "产品类目", "产品类别", "集合页", "产品分类页", "选型目录"),
+    "product": ("product", "attachment", "product detail", "product page", "model detail", "产品详情", "产品详情页", "型号页"),
+    "inquiry": ("inquiry", "contact", "contact us", "contact page", "request a quote", "联系我们", "联系页", "询价页"),
+    "company": ("company", "about us", "about", "公司介绍", "关于我们"),
+    "home": ("home", "homepage", "首页"), "article": ("article", "blog post", "文章详情", "文章页"),
+    "application": ("application", "application page", "应用页", "应用详情"),
+    "application_hub": ("application hub", "应用集合页"),
+    "capability": ("capability", "service", "service page", "服务页", "加工服务页"),
+}
+FAMILY_OF = {alias: family for family, aliases in PAGE_FAMILIES.items() for alias in aliases}
+
+
+def page_family(label: str) -> str:
+    normalized = " ".join(label.casefold().replace("_", " ").replace("-", " ").split())
+    if normalized in FAMILY_OF:
+        return FAMILY_OF[normalized]
+    if normalized.endswith(("系列集合页", "型号详情页")):
+        return "category" if normalized.endswith("系列集合页") else "product"
+    return ""
+
+
 class SearchPlan:
     """The same joins supply the page/keyword handoff, normalized CSVs and searchable offline view."""
 
     def __init__(self, plan: Row, pages: list[Row], decisions: list[Row],
-                 keywords: dict[str, dict[str, str]], analysis: AnalysisDelivery) -> None:
+                 keywords: dict[str, dict[str, str]], analysis: AnalysisDelivery,
+                 inherited_bases: dict[Scope, Basis] | None = None) -> None:
         self.analysis = analysis
         self.plan = plan
         self.keywords = keywords
@@ -79,8 +104,11 @@ class SearchPlan:
         self.modern = plan.get("schema_version") == "0.5.0"
         self.pages = index(pages)
         self.decisions = {text(d, "keyword_id"): d for d in decisions}
-        self.metrics = comparable_metrics(analysis.metrics, keywords, obj(plan.get("metric_basis", {})),
-                                          self.project["mode"] == "simulation")
+        snapshots = MetricSnapshots(analysis.metrics, keywords, obj(plan.get("metric_basis", {})),
+                                    self.project["mode"] == "simulation", optional_records(plan, "metric_basis_by_locale"),
+                                    inherited_bases or {})
+        self.metrics = snapshots.metrics
+        self.snapshot_rows = snapshots.catalogue(self.decisions)
         self.modules: list[Row] = []
         self.values: list[Row] = []
         self.groups: list[Row] = []
@@ -103,6 +131,7 @@ class SearchPlan:
         self._assign(plan, analysis)
         self._group(plan)
         self.opportunities = build_opportunities(plan, self.decisions, analysis.pages, self.ranks, self.comparisons)
+        self._link_page_traffic()
         buckets: dict[tuple[str, str, str, str], list[str]] = defaultdict(list)
         for kid, d in self.decisions.items():
             buckets[str(d["market"]), str(d["language"]), str(d["origin"]), str(d["coverage"])].append(kid)
@@ -139,6 +168,9 @@ class SearchPlan:
                 adjacent = strings(scope, "adjacent_page_ids")
                 require(set(adjacent) <= self.pages.keys() and pid not in adjacent, f"Unknown/self adjacent page: {pid}")
             peer_urls: list[str] = []
+            active_modules = active_design_modules(templates[text(page, "template_id")], page)
+            active_ids = {text(m, "id") for m in active_modules}
+            module_refs: dict[str, list[Row]] = defaultdict(list)
             for peer in optional_records(scope, "peer_reviews"):
                 rid = text(peer, "review_id")
                 require(rid in reviews, f"pages[{pid}] unknown peer review {rid}")
@@ -146,9 +178,21 @@ class SearchPlan:
                 require(review.get("status") in {"observed", "partial", "simulated"}, f"{rid} has no page observations")
                 require(review.get("status") != "simulated" or self.project["mode"] == "simulation",
                         f"{rid} simulated comparison on a real plan")
-                self.comparisons.append({"page_id": pid, "review_id": rid, "url": review["url"],
-                                         "page_type": review["page_type"], "status": review["status"],
-                                         "observed_at": review.get("observed_at", ""), "reason": text(peer, "reason")})
+                comparison: Row = {"page_id": pid, "review_id": rid, "url": review["url"], "page_type": review["page_type"],
+                                   "status": review["status"], "observed_at": review.get("observed_at", ""),
+                                   "reason": text(peer, "reason")}
+                use = peer.get("use", "comparable")
+                if use == "module_reference":
+                    mid = text(peer, "module_id")
+                    require(mid in active_ids, f"pages[{pid}] reference {rid} names an inactive module: {mid}")
+                    module_refs[mid].append(comparison)
+                    continue
+                require(use == "comparable", f"pages[{pid}] unknown peer reference use: {use}")
+                expected, observed = page_family(text(page, "page_type")), page_family(text(review, "page_type"))
+                require(not expected or not observed or expected == observed,
+                        f"pages[{pid}] incompatible peer page type {review['page_type']} for {page['page_type']} "
+                        f"at {review['url']}; use a comparable procurement page or a scoped module_reference")
+                self.comparisons.append(comparison)
                 peer_urls.append(text(review, "url"))
             refs = strings(scope, "price_refs") if "price_refs" in scope else []
             for ref in refs:
@@ -162,7 +206,7 @@ class SearchPlan:
                         price_refs=refs, market=self.project["market"], language=self.project["language"])
             design = obj(page.get("design_brief", {}))
             notes = {text(n, "module_id"): n for n in optional_records(design, "module_notes")}
-            for order, module in enumerate(active_design_modules(templates[text(page, "template_id")], page), 1):
+            for order, module in enumerate(active_modules, 1):
                 mid = text(module, "id")
                 module_ids.append(mid)
                 note = notes.get(mid, {})
@@ -172,7 +216,8 @@ class SearchPlan:
                     strings(note, "required_facts")
                 result: Row = {"page_id": pid, "module_id": mid, "order": order, "name": module["name"],
                                "buyer_question": note.get("buyer_question", ""), "content": note.get("content_note", ""),
-                               "required_facts": note.get("required_facts", []), "keyword_ids": []}
+                               "required_facts": note.get("required_facts", []), "keyword_ids": [],
+                               "peer_references": module_refs.get(mid, [])}
                 modules[pid, mid] = result
                 self.modules.append(result)
             page["module_ids"] = module_ids
@@ -283,6 +328,35 @@ class SearchPlan:
                                 "decision_evidence": unique([eid for w in words for eid in strings(w, "evidence_ids")]),
                                 "page_rationale": page.get("rationale", ""), "reasons": unique([text(w, "reason") for w in words])})
 
+    def _link_page_traffic(self) -> None:
+        """Only attach whole-page observations linked to this decision, never impute keyword traffic."""
+        ranked = {tuple(str(r.get(k, "")) for k in GROUP_CONTEXT) for r in self.ranks
+                  if r.get("keyword_id") or r.get("keyword_original")}
+        by_url: dict[tuple[str, str, str], list[str]] = defaultdict(list)
+        for observation in self.analysis.pages:
+            if tuple(observation[k] for k in GROUP_CONTEXT) not in ranked:
+                by_url[observation["market"], observation["language"], observation["url"]].append(observation["source_ref"])
+        group_index = {text(g, "planning_id"): g for g in self.groups}
+        by_page: dict[str, list[str]] = defaultdict(list)
+        for group in self.groups:
+            by_page[text(group, "page_id", empty=True)].append(text(group, "planning_id"))
+        linked: dict[str, set[str]] = defaultdict(set)
+        for lead in self.opportunities:
+            pid = text(lead, "page_id", empty=True)
+            words = strings(lead, "keyword_ids")
+            if words:
+                ids = {ident for kid in words for ident in strings(self.decisions[kid], "planning_ids")
+                       if not pid or group_index[ident]["page_id"] == pid}
+            else:
+                ids = set(by_page[pid]) if pid else set()
+            for ident in ids:
+                linked[ident].update(strings(lead, "urls"))
+        for ident, group in group_index.items():
+            urls = sorted(linked[ident] | set(strings(group, "comparable_urls")))
+            observations = {u: by_url[str(group["market"]), str(group["language"]), u] for u in urls}
+            group["page_only_urls"] = [u for u, refs in observations.items() if refs]
+            group["page_only_refs"] = [ref for refs in observations.values() for ref in refs]
+
     def write(self, stage: Path, architecture_json: str, keywords_path: Path, materials: Path | None) -> None:
         originals = source_catalog(stage, self.analysis, keywords_path, materials)
         analysis = keyword_analysis(self.plan, self.keywords, self.decisions)
@@ -292,6 +366,7 @@ class SearchPlan:
                                               for row in originals], ["id", "name", "source_id", "download", "sha256"])
         tables = [
             ("page-opportunities", self.opportunities, OPPORTUNITY_FIELDS),
+            ("metric-snapshots", self.snapshot_rows, ["market", "language", "page_id", "metric", "selected", "available"]),
             ("demand-coverage", self.coverage, ["market", "language", "origin", "coverage", "query_count"]),
             ("commercial-planning", self.groups, ["planning_id", "value_id", "page_id", "group_id"]),
             ("dimension-values", self.values, ["level", "value_id", "dimension", "value", "market", "language", "query_count"]),
@@ -306,7 +381,8 @@ class SearchPlan:
         page_fields = ("id", "name", "name_en", "name_zh", "url", "page_type", "parent_id", "template_id", "priority",
                        "objective", "rationale", "evidence_ids", "fact_gaps", "primary_keyword", "boundary", "approval",
                        "page_action", "state", "priority_reason", "adjacent_page_ids", "price_refs", "query_count",
-                       "volume_coverage", "known_monthly_volume", "kd_coverage")
+                       "volume_coverage", "known_monthly_volume", "kd_coverage", "volume_status", "kd_status",
+                       "kd_under_30", "kd_30_to_under_60", "kd_60_to_100", "kd_unknown")
         # Normalize the high-volume HTML tables. CSVs retain the complete analytical fields.
         bases: list[object] = []
         basis_ids: dict[str, int] = {}
@@ -333,7 +409,7 @@ class SearchPlan:
                        "observed_at", "url", "evidence_class", "position")
         (stage / "workbench-context.js").write_text("window.architectureContext = null;\n", encoding="utf-8")
         payload = {"project": self.project, "summary": self.summary, "metric_bases": bases,
-                   "opportunities": self.opportunities,
+                   "opportunities": self.opportunities, "metric_snapshots": self.snapshot_rows, "term_metric_fields": TERM_METRICS,
                    "opportunity_offers": {text(o, "id"): text(o, "label") for o in records(self.plan, "offerings")},
                    **analysis, "inputs": originals, "page_observations": self.analysis.pages,
                    "word_fields": [*word_fields, "volume_basis_id", "kd_basis_id"], "rank_fields": rank_fields,

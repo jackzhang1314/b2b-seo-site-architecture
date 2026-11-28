@@ -115,6 +115,27 @@ def page_signatures(folder: Path) -> dict[str, tuple[str, str]]:
             for pid, name in names.items()}
 
 
+def keyword_changes(previous: Path, current: Path) -> dict[str, dict[str, object]]:
+    """Keep full member counts and a few readable examples in each changed page's handoff."""
+    def members(folder: Path) -> dict[str, dict[str, str]]:
+        groups: dict[str, dict[str, str]] = defaultdict(dict)
+        for row in read_delivery_rows(local_file(folder, "keyword-decisions.csv")):
+            if row.get("page_id") and row.get("keyword_id"):
+                groups[row["page_id"]][row["keyword_id"]] = row.get("keyword") or row["keyword_id"]
+        return groups
+
+    old, new = members(previous), members(current)
+    changes: dict[str, dict[str, object]] = {}
+    for pid in old.keys() | new.keys():
+        before, assignments = old.get(pid, {}), new.get(pid, {})
+        added, removed = assignments.keys() - before.keys(), before.keys() - assignments.keys()
+        if added or removed:
+            changes[pid] = {"added_count": len(added), "removed_count": len(removed),
+                            "added_examples": sorted(assignments[k] for k in added)[:3],
+                            "removed_examples": sorted(before[k] for k in removed)[:3]}
+    return changes
+
+
 def opportunity_signatures(folder: Path) -> dict[str, tuple[str, str, str]] | None:
     filename = "page-opportunities.csv"
     if not (folder / filename).exists():

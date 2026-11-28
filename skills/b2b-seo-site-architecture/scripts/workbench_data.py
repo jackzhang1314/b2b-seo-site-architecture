@@ -12,8 +12,9 @@ from urllib.parse import quote
 
 from cluster import TOKEN
 from delivery import AnalysisDelivery, digest
+from demand_metrics import totals
 from library import items, read_table, stable_id, text_map
-from plan_records import Row, obj, optional_records, records, require, text
+from plan_records import Row, obj, optional_records, records, require, strings, text
 
 CHUNK_SIZE = 100
 
@@ -115,27 +116,81 @@ def source_catalog(stage: Path, delivery: AnalysisDelivery, keywords_path: Path,
     return catalogue
 
 
-def keyword_analysis(plan: Row, keywords: dict[str, dict[str, str]], decisions: dict[str, Row]) -> Row:
-    tf: Counter[tuple[str, str, tuple[str, ...]]] = Counter()
-    df: Counter[tuple[str, str, tuple[str, ...]]] = Counter()
-    locales: Counter[tuple[str, str]] = Counter()
-    token_rows: list[list[str]] = []
-    intent_members: dict[str, list[str]] = defaultdict(list)
+Term = tuple[str, str, tuple[str, ...]]
+TERM_METRICS = ("known_monthly_volume", "volume_coverage", "volume_status", "kd_coverage", "kd_status",
+                "kd_under_30", "kd_30_to_under_60", "kd_60_to_100", "kd_unknown")
+
+
+def term_members(keywords: dict[str, dict[str, str]], tokens: dict[str, list[str]], lengths: Iterable[int],
+                 requested: set[Term] | None = None) -> tuple[Counter[Term], dict[Term, list[str]]]:
+    counts: Counter[Term] = Counter()
+    members: dict[Term, list[str]] = defaultdict(list)
     for kid, word in keywords.items():
-        market, lang = word["market"], word["language"]
-        locales[market, lang] += 1
-        tokens = TOKEN.findall(word["keyword_normalized"])
-        token_rows.append(tokens)
-        seen = set()
-        for n in (1, 2, 3):
-            for i in range(len(tokens) - n + 1):
-                key = (market, lang, tuple(tokens[i:i+n]))
-                tf[key] += 1
-                seen.add(key)
-        df.update(seen)
+        parts = tokens[kid]
+        seen: set[Term] = set()
+        for length in lengths:
+            for i in range(len(parts) - length + 1):
+                key = (word["market"], word["language"], tuple(parts[i:i+length]))
+                if requested is not None and key not in requested:
+                    continue
+                counts[key] += 1
+                if key not in seen:
+                    members[key].append(kid)
+                    seen.add(key)
+    return counts, members
+
+
+def verify_frequency(analysis: Row, keywords: dict[str, dict[str, str]]) -> None:
+    tokenizer = analysis.get("tokenizer", "standard")
+    require(tokenizer in {"standard", "custom"}, "Use standard or custom keyword_analysis.tokenizer")
+    if tokenizer == "custom":
+        text(analysis, "tokenizer_description")
+    tokens: dict[str, list[str]] = {}
+    for row in records(analysis, "tokenized_keywords"):
+        kid = text(row, "keyword_id")
+        require(kid in keywords and kid not in tokens, "Tokenized keyword coverage differs from input")
+        require(text(row, "keyword") == keywords[kid]["keyword_original"], "Tokenized original keyword differs")
+        parts = strings(row, "tokens", unique=False)
+        require(tokenizer == "custom" or parts == TOKEN.findall(keywords[kid]["keyword_normalized"]),
+                f"Tokenized keyword {kid} differs from original; document an alternative tokenizer explicitly")
+        tokens[kid] = parts
+    require(tokens.keys() == keywords.keys(), "Tokenized keyword coverage differs from input")
+    wanted: dict[Term, Row] = {}
+    for row in records(analysis, "terms"):
+        phrase = tuple(text(row, "term").split(" "))
+        market, language = text(row, "market"), text(row, "language", empty=True)
+        for field in ("tf", "df", "denominator_keywords", "ngram"):
+            amount = row.get(field)
+            require(type(amount) is int and amount > 0, f"Invalid word-frequency {field}")
+        key = market, language, phrase
+        require(key not in wanted and row["ngram"] == len(phrase) and all(phrase),
+                f"Duplicate or inconsistent word-frequency ngram: {row['term']}")
+        wanted[key] = row
+    counts, members = term_members(keywords, tokens, {len(key[2]) for key in wanted}, set(wanted))
+    denominators = Counter((word["market"], word["language"]) for word in keywords.values())
+    for key, row in wanted.items():
+        listed = set(strings(row, "keyword_ids", required=True))
+        require(row["denominator_keywords"] == denominators[key[0], key[1]] and row["tf"] == counts[key]
+                and row["df"] == len(members[key]) and listed == set(members[key]),
+                f"Word-frequency TF/DF coverage mismatch for {row['term']} in {key[0]}/{key[1]}: "
+                f"source tokens give TF={counts[key]}, DF={len(members[key])}, denominator={denominators[key[0], key[1]]}")
+
+
+def keyword_analysis(plan: Row, keywords: dict[str, dict[str, str]], decisions: dict[str, Row]) -> Row:
+    tokens = {kid: TOKEN.findall(word["keyword_normalized"]) for kid, word in keywords.items()}
+    locales = Counter((word["market"], word["language"]) for word in keywords.values())
+    tf, members = term_members(keywords, tokens, range(1, 4))
+    intent_members: dict[str, list[str]] = defaultdict(list)
+    for kid in keywords:
         intent_members[text(decisions[kid], "group_id")].append(kid)
-    terms = [[market, lang, " ".join(phrase), len(phrase), tf[market, lang, phrase], count, locales[market, lang]]
-             for (market, lang, phrase), count in sorted(df.items(), key=lambda pair: (-pair[1], pair[0]))]
+    terms: list[list[object]] = []
+    for key, ids in sorted(members.items(), key=lambda pair: (-len(pair[1]), pair[0])):
+        market, lang, phrase = key
+        aggregate = totals(ids, decisions)
+        dims = sorted({dim for kid in ids if "dimension_value_ids" in decisions[kid]
+                       for dim in strings(decisions[kid], "dimension_value_ids")})
+        terms.append([market, lang, " ".join(phrase), len(phrase), tf[key], len(ids), locales[market, lang],
+                      *(aggregate[field] for field in TERM_METRICS), dims])
     intents = []
     for group in records(plan, "groups"):
         ids = intent_members[text(group, "id")]
@@ -143,7 +198,7 @@ def keyword_analysis(plan: Row, keywords: dict[str, dict[str, str]], decisions: 
         targets = sorted({str(decisions[k]["page_id"]) for k in ids if decisions[k]["page_id"]})
         intents.append({**group, "market": word["market"], "language": word["language"], "query_count": len(ids),
                         "representative": word["keyword_original"], "targets": targets})
-    return {"terms": terms, "tokens": dict(zip(keywords, token_rows, strict=True)), "intents": intents,
+    return {"terms": terms, "tokens": tokens, "intents": intents,
             "sites": records(plan, "competitors"), "source_notes": records(plan, "sources"),
             "reviews": [{k: r.get(k, "") for k in ("competitor_id", "url", "status", "page_type", "summary",
                                                    "observed_at", "id")} for r in optional_records(plan, "competitor_page_reviews")]}
@@ -152,6 +207,8 @@ def keyword_analysis(plan: Row, keywords: dict[str, dict[str, str]], decisions: 
 def save_term_table(path: Path, analysis: Row) -> None:
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.writer(stream)
-        writer.writerow(["market", "language", "term", "ngram", "tf", "df", "denominator_keywords"])
+        writer.writerow(["market", "language", "term", "ngram", "tf", "df", "denominator_keywords",
+                         *TERM_METRICS, "dimension_value_ids"])
         for value in items(analysis["terms"]):
-            writer.writerow(items(value))
+            cells = items(value)
+            writer.writerow([*cells[:-1], json.dumps(cells[-1], ensure_ascii=False)])

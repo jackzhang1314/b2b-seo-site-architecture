@@ -8,10 +8,10 @@ from html import escape
 from pathlib import Path
 from urllib.parse import quote, unquote
 
-from plan_records import Row, obj, records, text
+from plan_records import Row, obj, records, strings, text
 from revisions import ROLES, read_revisions
 from seo_project import INDEX, WP_END, WP_START, block_range, identity, local_file, project_for
-from workbench_events import SCHEMA
+from workbench_events import SCHEMA, normalize_handoff
 
 HANDOFF = "workbench-handoff.json"
 STATUS_START = "<!-- b2b-seo:page-status:start -->"
@@ -120,6 +120,8 @@ def status_summary(root: Path, folder: Path, handoff: Row | None) -> str:
     if handoff is None:
         return "\n".join([STATUS_START, "- 本版未登记逐页状态清单。建页、SEO 排期和完成情况需另行核实。", STATUS_END])
     pages = records(handoff, "pages")
+    if pages and all("seo_decision" in p and "history" in p for p in pages):
+        pages = records(normalize_handoff(dict(handoff)), "pages")
     revision = handoff.get("revision_id")
     limit = len(pages) if len(pages) <= FULL_PAGE_LIMIT else LARGE_GROUP_LIMIT
     rows = [STATUS_START]
@@ -142,6 +144,16 @@ def status_summary(root: Path, folder: Path, handoff: Row | None) -> str:
                     title += "〔前版已发布〕" if previous else "〔已发布〕"
                 elif previous:
                     title += "〔前版回执〕"
+            if label == "已记录需求去向":
+                resolution = obj(page["demand_resolution"])
+                action = resolution.get("action")
+                if action == "merge":
+                    title += " → " + inline_text(text(resolution, "target_page_id"))
+                    title += " / " + inline_text(text(resolution, "target_module_id"))
+                else:
+                    title += "〔" + ("本轮暂缓" if action == "defer" else "业务范围外") + "〕"
+            if label == "已补企业资料":
+                title += "　" + inline_text(text(page, "business_answer"), limit=72)
             names.append(title)
         if len(members) > limit:
             truncated = True
@@ -159,6 +171,20 @@ def status_summary(root: Path, folder: Path, handoff: Row | None) -> str:
     for track, done, label in (("build", "built", "已建"), ("onpage", "optimized", "已优化")):
         if any(progress(p, track) is not None for p in pages):
             group(label, [p for p in pages if progress(p, track) in (done, "published")], track=track)
+    if any(p.get("onpage_alignment") for p in pages):
+        group("本版 SEO 待复核", [p for p in pages if p.get("onpage_alignment") == "needs_review"])
+        group("本版 SEO 已核对", [p for p in pages if p.get("onpage_alignment") == "aligned"])
+    resolved = [p for p in pages if p.get("decision") == "skip"
+                and obj(p.get("demand_resolution", {})).get("action") in {"merge", "defer", "out_of_scope"}]
+    if resolved:
+        group("已记录需求去向", resolved)
+    unresolved = [p for p in pages if p.get("decision") == "skip" and "assigned_keyword_ids" in p
+                  and set(strings(p, "assigned_keyword_ids")) - set(strings(obj(p["demand_resolution"]), "keyword_ids"))]
+    if unresolved:
+        group("需求去向待确认", unresolved)
+    answers = [p for p in pages if p.get("business_answer")]
+    if answers:
+        group("已补企业资料", answers)
     if truncated:
         rows.append("- " + project_link(root, f"查看全部 {len(pages)} 页的选择、排期和完成记录", folder / HANDOFF))
     return "\n".join([*rows, STATUS_END])

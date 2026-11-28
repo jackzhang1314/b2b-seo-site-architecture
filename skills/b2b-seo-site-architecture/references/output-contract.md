@@ -159,6 +159,19 @@ python3 SKILL_DIR/scripts/architecture.py --project-root "/客户建站项目" -
 普通 GET 返回 HTML，其中 `script#saved-page-context` 带最新清单；同一 URL 带 `Accept: application/json` 返回结构化数据。由 `resources` 查找相对于本版的原表、逐词归属、模板、字段和设计简报。编辑服务收到同源选择后持久写入项目并回执，旧窗口修改同一行时检查该页的 `decision_version`。重启后继续使用项目保存的端口。单独文件或普通静态服务器可供只读查阅。
 
 
+### 用户保存的供货答复和词组去向
+
+工作台的 `assigned_keyword_ids` 表示本版原始分配到该页的完整成员。用户选「不建」之后，可以另存一次 `demand_resolution`。其 `action` 为 `pending`、`merge`、`defer` 或 `out_of_scope`。合并必须指定同一方案内有效的 `target_page_id` 和 `target_module_id`。保存时由工作台固定 `keyword_ids` 并记录 `reason`。之后新增的词需要另行确认。目标被跳过时，相关分配回到待定，选择历史中可以查看此前决定。
+
+On-page 从同版逐词表取得成员的原始指标，再按来源页的有效去向调整目标章节。来源页须为 skip，目标页、模块须有效且目标页未选 skip。目标页原有主词不变，并入词作为章节词。企业补充保存在 `business_answer`，影响供货判断的问题保存在 `business_question`。项目入口和工作台 JSON 可读取用户选择和已记录的回复。
+
+用户在对话中给出决定时，先从该版清单读取 `revision_id` 以及对应页当前的 `demand_version` 或 `business_version`。传给 `page_confirmation.py` 的版本应来自本次读取。GUI 和命令行共同使用逐页并发保护。
+
+```sh
+python3 SKILL_DIR/scripts/page_confirmation.py --workbench WORKBENCH --revision-id REVISION --page-id M05 --expected-version DEMAND_VERSION --demand-action merge --target-page M02 --target-module selection --reason "3 吨仍有供货，由总览页回答选型问题"
+python3 SKILL_DIR/scripts/page_confirmation.py --workbench WORKBENCH --revision-id REVISION --page-id M18 --expected-version BUSINESS_VERSION --business-answer "美国市场的电动型号由销售部核对后补齐"
+```
+
 ### 工作进度回写
 
 各版沿用 `b2b-seo-workbench-handoff/1`，增加 `workflow_version: 1`。项目 AGENTS.md 的 SEO 区中，每版的 H3 给出指针和当前摘要。以对应目录里的 `workbench-handoff.json` 为完整记录。每次 GUI 保存或执行工具提交回执，同时刷新该版本的摘要。只读旧 0.8 数据时沿用其实际建页选择，缺少记录的轨道初始显示暂无回执。
@@ -169,17 +182,21 @@ python3 SKILL_DIR/scripts/architecture.py --project-root "/客户建站项目" -
 | 哪些页可以开始优化 | `seo_decision` 为 requested、hold；`seo_eligible` 为可执行判断 | On-page SEO 队列 |
 | 实际建页进度 | `progress.build.status` 为 not_started、built 或 published | 已有页面、保存回读、发布回读 |
 | 实际优化进度 | `progress.onpage.status` 为 not_started、optimized 或 published | 已验收优化稿、已核对发布内容 |
+| 当前规划是否已核对 | `onpage_alignment` 为 not_reviewed、needs_review 或 aligned | 看板和执行工具区分已有结果与本版复核；核对依据在 `onpage_alignment_receipt` |
 | 某次完成了什么 | `history[]` 包含 track、status、event_id、origin_revision_id、occurred_at、summary、evidence | 逐页工作明细，含日期和依据 |
 
 ```sh
 python3 SKILL_DIR/scripts/workbench_progress.py resolve --project-root SITE --queue build
 python3 SKILL_DIR/scripts/workbench_progress.py resolve --project-root SITE --queue onpage
 python3 SKILL_DIR/scripts/workbench_progress.py record --workbench WORKBENCH --revision-id REVISION --page-id M04 --track build --status built --event-id wp-42-save-16 --evidence docs/receipts/wp-42-save-16.json --summary "2 吨系列页已保存并读回"
+python3 SKILL_DIR/scripts/workbench_progress.py record --workbench WORKBENCH --revision-id REVISION --page-id M04 --track onpage --status reviewed --event-id seo-review-42 --evidence docs/receipts/seo-review-42.md --summary "读回正文，已覆盖新版经销商批量询价问题"
 ```
 
 结果记录使用执行时捕获的 `revision_id` 和 `page_id`。执行方负责核对实际的目标站、页面、内容与发布状态，证据可以是保存在项目内的回读记录或核验过的目标网址。无页级证据的整站部署只保留整站结果。请求重试沿用事件编号、原始发生时间及原始摘要；同一编号且相同内容只计一次，内容冲突报错。迟到的回执按 `--occurred-at`（带时区的 ISO 8601）归位。最近一次公开发布的时间另存为 `last_published_at`。已发布后再做的优化稿会显示为新的优化记录。用户选择只对未来工作作安排，过往的实际操作仍有记录。
 
-GUI 只提交 `decision` 或 `seo_decision` 之一，并传该字段的 `expected_version`。选择和排期使用独立版本号；切换版本或同一选择在别处改变时，编辑端重新取得当前值。后续工具只通过共同记录入口写回。用户态服务沿用项目端口，数据存放在项目内，可随整个建站项目移动。
+页面内容已覆盖本版新要求时，执行方可在实际回读后保存 `reviewed`。工作台在核对轨道登记这条证据，实际发布仍按发布回执统计。补词、采购职责调整、企业答复和移交的词组可使旧稿需要复核。单纯刷新搜索量能沿用原有核对。链上同站、同市场和语言、同资料性质、同页号和同网址页型的历史版本若补交实际回执，采用版会关联原版证据。采用版可在重读时补齐中断的关联，迁址和归属冲突继续由用户核实。
+
+GUI 每次保存一种选择及其 `expected_version`。建页、SEO 排期、词组去向和供货答复各有独立版本号。切换版本或同一选择在别处改变时，编辑端重新取得当前值。后续工具通过共同记录入口写回。用户态服务沿用项目端口，数据存放在项目内，可随整个建站项目移动。
 
 ### 收到补充资料后修订
 
@@ -194,4 +211,4 @@ python3 SKILL_DIR/scripts/architecture.py --plan REVISED_PLAN.json --keywords AN
 
 只收到一种新增资料时使用对应的来源参数即可。用 `INTAKE/keyword-sources.json` 运行词库合表，用 `INTAKE/ranking-sources.json` 处理竞品数据。基线已收到新的选择或回执时，重新从最新基线生成草案再采用。
 
-已有标准 0.8.0 工作台可用 `architecture.py --upgrade-workbench WORKBENCH --project-root SITE` 升级原网址。该命令保留原版号、研究数据和选择，并就地备份原文件。重开本机工作台后核对页数、此前的选择和项目 H3。
+标准 0.8.0 和 0.9.0 工作台可用 `architecture.py --upgrade-workbench WORKBENCH --project-root SITE` 升级原网址。编辑器沿用原方案编号、研究数据、选择和回执，并按旧版本保存文件备份。需要用新增分析口径计算历史资料时，从原件与规划重新生成修订草案。

@@ -23,6 +23,7 @@ from workbench_entry import (
 FILES = {"handoff": HANDOFF, "workbench": "index.html", "plan": "architecture-plan.json", "pages": "pages.csv",
          "library": "clean-keywords.csv", "decisions": "keyword-decisions.csv", "rankings": "received-rankings.csv",
          "top_pages": "page-traffic-observations.csv", "comparables": "comparable-pages.csv",
+         "metric_snapshots": "metric-snapshots.csv",
          "planning": "commercial-planning.csv", "intents": "intent-groups.csv", "frequency": "words-and-phrases.csv",
          "modules": "content-modules.csv", "fields": "design-fields.csv", "raw_catalog": "input-files.csv",
          "analysis": "analysis-manifest.json", "validation": "validation.json", "opportunities": "page-opportunities.csv",

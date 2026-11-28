@@ -36,12 +36,19 @@
 <div class="head"><div><h1 id="view-title">网站架构</h1><p id="view-desc"></p></div></div>
 <div class="metric-line" id="metrics"></div>
 <section id="selection-summary" class="selection-summary" aria-label="全部规划页的选择与执行进度">
+<div class="queue-tabs" role="group" aria-label="按待办筛选页面">
+  <button type="button" data-work-queue="" aria-pressed="true">全部页面 <b data-queue-count="">—</b></button>
+  <button type="button" data-work-queue="confirm" aria-pressed="false">待我确认 <b data-queue-count="confirm">—</b></button>
+  <button type="button" data-work-queue="build" aria-pressed="false">已确认待建 <b data-queue-count="build">—</b></button>
+  <button type="button" data-work-queue="review" aria-pressed="false">本版 SEO 待复核 <b data-queue-count="review">—</b></button>
+</div>
+<details class="work-details"><summary>选择与发布统计</summary>
 <div class="work-totals">
   <div><h2>建页选择</h2><p><span><b id="choice-count-build" data-tally="decision.build">—</b> 要建</span><span><b id="choice-count-skip" data-tally="decision.skip">—</b> 不建</span><span><b id="choice-count-pending" data-tally="decision.pending">—</b> 待定</span></p></div>
-  <div><h2>实际建页</h2><p><span><b data-tally="build.completed">—</b> 已建页</span><span>其中 <b data-tally="build.published">—</b> 已发布</span><span><b data-tally="build.not_started">—</b> 暂无记录</span></p></div>
+  <div><h2>实际建页</h2><p><span><b data-tally="build.completed">—</b> 已建页</span><span><b data-tally="build.ever_published">—</b> 曾发布</span><span><b data-tally="build.not_started">—</b> 暂无记录</span></p></div>
   <div><h2>SEO 排期</h2><p><span><b data-tally="seo_decision.requested">—</b> 安排优化</span><span><b data-tally="seo_decision.hold">—</b> 暂不安排</span><small id="unspecified-seo" hidden></small></p></div>
-  <div><h2>实际优化</h2><p><span><b data-tally="onpage.completed">—</b> 已优化</span><span>其中 <b data-tally="onpage.published">—</b> 已发布</span><span><b data-tally="onpage.not_started">—</b> 暂无记录</span></p></div>
-</div>
+  <div><h2>历次实际优化</h2><p><span><b data-tally="onpage.completed">—</b> 已优化</span><span><b data-tally="onpage.ever_published">—</b> 曾发布</span><span><b data-tally="onpage.not_started">—</b> 暂无记录</span></p></div>
+</div></details>
 <div class="selection-actions"><span id="choice-status" role="status"></span><button type="button" id="copy-workbench">复制工作台链接</button><input id="copy-link-text" aria-label="工作台链接" readonly hidden><a id="editable-workbench" hidden>打开可编辑工作台</a></div>
 <p id="readonly-help" hidden>当前为只读预览。请打开项目的可编辑工作台保存选择。<label id="load-choice-file" hidden>读取已保存的确认清单 <input id="choice-file" type="file" accept=".json"></label></p></section>
 <div class="tools" id="view-filters">
@@ -79,6 +86,11 @@ delete data.rank_rows;
 const byId = id => document.getElementById(id);
 const wordById = new Map(data.decisions.map(row => [row.keyword_id, row]));
 const pageById = new Map(data.pages.map(row => [row.id, row]));
+const moduleNames = new Map();
+for(const module of data.modules) {
+  if(!moduleNames.has(module.page_id))moduleNames.set(module.page_id,new Map());
+  moduleNames.get(module.page_id).set(module.module_id,module.name);
+}
 data.overview = data.pages.filter(page => page.page_type !== 'article');
 const wordsByPage = new Map();
 for (const word of data.decisions) {
@@ -110,7 +122,13 @@ let selectedIntent='', selectedTerm=null, selectedSite='', selectedUrl='', sourc
 const groupById=new Map(data.intents.map(row=>[row.id,row]));
 const inputById=new Map(data.inputs.map(row=>[row.id,row]));
 const srcByKey=new Map(data.inputs.map(row=>[row.family+'|'+row.source_id,row]));
-data.terms=data.terms.map(([market,language,term,ngram,tf,df,denominator])=>({market,language,term,ngram,tf,df,denominator}));
+data.terms=data.terms.map(([market,language,term,ngram,tf,df,denominator,...extra])=>{
+  const row={market,language,term,ngram,tf,df,denominator};
+  const fields=data.term_metric_fields||[];
+  fields.forEach((field,i)=>{row[field]=extra[i];});
+  row.dimension_value_ids=extra[fields.length]||[];
+  return row;
+});
 
 const scopeModes = new Set(['decisions','groups']);
 let mode = 'pages', selectedPage = '', selectedValue = '', selectedPlan = '', selectedDimension = null, selectedWord = '', offset = 0;
@@ -121,7 +139,7 @@ const workFilters = [
   {id:'seo', field:'seo_decision'},
   {id:'onpage-progress', field:'onpage'}
 ];
-let overviewMatches = 0;
+let overviewMatches = 0, workQueue = '';
 function node(tag, value, cls) {
   const item = document.createElement(tag);
   if (value !== undefined && value !== null) item.textContent = String(value);
@@ -137,6 +155,7 @@ function action(label, handler) {
   const b = node('button',label); b.type = 'button'; b.addEventListener('click',handler); return b;
 }
 function reset(view) {
+  workQueue='';
   for(const filter of workFilters)byId(filter.id+'-filter').value='';
   opportunityFilter='all';opportunityId='';
   mode = view; selectedIntent='';selectedTerm=null;selectedSite='';sourceId='';sourceRow=1;activePage='';locale='';byId('locale').value=''; selectedPage = ''; selectedValue = ''; selectedPlan = ''; selectedDimension = null; selectedWord = ''; offset = 0;
@@ -149,9 +168,25 @@ function openWords({page='', value='', plan='', dimension=null, word='',intent='
 function details(label, parent) {
   const d = node('details'); d.append(node('summary',label)); parent.append(d); return d;
 }
+function metricValue(value,state) {
+  return value===''||value===undefined ? title(state||'missing') : String(value);
+}
+function snapshotPanel(parent,pageId='',market='',language='') {
+  const rows=(data.metric_snapshots||[]).filter(s=>s.page_id===pageId&&(!market||s.market===market)&&(!language||s.language===language));
+  if(!rows.length)return;
+  const section=details('查看指标来源、日期和覆盖',parent);
+  section.append(tableBox(['口径','指标','来源和日期','已知月量 / KD 分布','有值查询 / 全部'],rows.map(s=>{
+    const volume=s.metric==='volume';
+    const label=s.selected?(s.available?'当前采用':'当前口径缺少观察'):'可比较';
+    const value=volume?metricValue(s.known_monthly_volume,'missing'):[s.kd_under_30,s.kd_30_to_under_60,s.kd_60_to_100].join(' / ');
+    return [label,volume?'月搜索量':'KD（低 / 中 / 高）',[s.market,s.language,s.provider,s.observed_at,title(s.evidence_class),s.unit,s.scope,s.metric_type].filter(Boolean).join(' · '),
+      value,volume?s.volume_coverage:s.kd_coverage];
+  })));
+}
 function metric(parent, row) {
-  line(parent,'已知月搜索量 / 有量查询', (row.known_monthly_volume === '' ? '未提供' : row.known_monthly_volume) + ' · ' + row.volume_coverage);
-  line(parent,'KD 覆盖',row.kd_coverage);
+  line(parent,'已知月搜索量 / 有量查询',metricValue(row.known_monthly_volume,row.volume_status)+' · '+row.volume_coverage);
+  const status=row.kd_status&&!['known','partial'].includes(row.kd_status)?' · '+title(row.kd_status):'';
+  line(parent,'KD 覆盖',row.kd_coverage+status);
   if (row.kd_unknown !== undefined) line(parent,'KD 词数（低于 30 / 30 至低于 60 / 60–100 / 未知）',
     [row.kd_under_30,row.kd_30_to_under_60,row.kd_60_to_100,row.kd_unknown].join(' / '));
 }
@@ -163,16 +198,19 @@ function priceCard(box,row) {
 }
 function renderPage(box,p) {
   box.append(node('h2',pageName(p)),node('p',[p.id,title(p.page_type),p.url].join(' · '),'meta'));
-  if(p.page_type!=='article')box.append(pageChoices.pagePanel(p.id));
+  if(p.page_type!=='article')box.append(pageChoices.pagePanel(p.id),pageChoices.inputs(p.id,moduleNames));
   if(p.primary_keyword)box.append(chip('主词 · '+p.primary_keyword));
   line(box,'页面职责',p.objective); line(box,'页面安排',[title(p.page_action),title(p.approval),p.priority].filter(Boolean).join(' · '));line(box,'优先理由',p.priority_reason);
   line(box,'拆并依据',p.rationale); line(box,'相邻页边界',[p.boundary,...p.adjacent_page_ids.map(id=>id+' '+pageName(pageById.get(id)))].filter(Boolean));
-  if(p.query_count)metric(box,p); line(box,'企业事实与待补资料',p.fact_gaps);
+  if(p.query_count){metric(box,p);snapshotPanel(box,p.id,p.market,p.language);} line(box,'企业事实与待补资料',p.fact_gaps);
   if(p.query_count)box.append(action('查看本页全部 '+p.query_count+' 个词',()=>openWords({page:p.id})));
   const modules = data.modules.filter(m=>m.page_id===p.id);
   for (const m of modules) {
     const d = details(m.order+' · '+m.name+'（'+m.keyword_ids.length+' 词）',box);
     line(d,'买家问题',m.buyer_question); line(d,'本页要回答的内容',m.content); line(d,'所需事实',m.required_facts);
+    for(const ref of m.peer_references||[]){
+      external(d,ref.url);line(d,'本模块参考理由',[ref.page_type,ref.reason]);
+    }
     for (const id of m.keyword_ids.slice(0,20)) d.append(action(wordById.get(id).keyword,()=>openWords({word:id})));
     if(m.keyword_ids.length>20)d.append(node('p','此处列前 20 词。全部成员见本页关键词或内容模块 CSV。','muted'));
   }
@@ -186,10 +224,37 @@ function renderPage(box,p) {
   for(const ref of p.price_refs){const d=details('报价依据 · '+ref,box); priceCard(d,prices.get(ref));}
   pageHandoff(box,p);
 }
+const savedMembers = new WeakMap();
+function currentAssignment(word) {
+  const source=word.page_id;
+  if(!source)return {label:word.coverage==='out_of_scope'?'原规划范围外':'尚无目标页'};
+  const decision=pageChoices.decision(source);
+  if(decision!=='skip')return {label:decision==='build'?'已选页面承接':'目标页待确认',target:source};
+  const resolution=pageChoices.value(source,'demand_resolution');
+  if(resolution && Array.isArray(resolution.keyword_ids)){
+    if(!savedMembers.has(resolution))savedMembers.set(resolution,new Set(resolution.keyword_ids));
+    if(savedMembers.get(resolution).has(word.keyword_id)){
+      if(resolution.action==='defer')return {label:'用户暂缓'};
+      if(resolution.action==='out_of_scope')return {label:'业务不做'};
+      const target=resolution.target_page_id;
+      if(resolution.action==='merge' && pageById.has(target) && pageChoices.decision(target)!=='skip'
+         && pageChoices.value(target,'module_ids')?.includes(resolution.target_module_id)){
+        return {label:pageChoices.decision(target)==='build'?'已并入要建页':'并入目标页待确认',
+          target,module:resolution.target_module_id};
+      }
+    }
+  }
+  return {label:'不建独立页，去向待定'};
+}
 function renderWord(box,w) {
   box.append(node('h3',w.keyword),node('p',[w.market,w.language,title(w.role),title(w.coverage),title(w.origin)].join(' · '),'meta'));
   line(box,'原句分词', (data.tokens[w.keyword_id]||[]).join(' · '));line(box,'意图与主归属',[w.buyer_task,w.target_url||title(w.disposition),w.module_id].filter(Boolean));
   line(box,'为什么这样安排',[w.reason,w.remaining_need].filter(Boolean));
+  if(pageChoices.known()){
+    const current=currentAssignment(w);
+    line(box,'按用户选择的去向',[current.label,current.target && pageName(pageById.get(current.target)),current.module].filter(Boolean));
+    if(current.target && current.target!==w.page_id)box.append(action('打开并入的目标页',()=>openPage(current.target)));
+  }
   if(w.page_id)box.append(action('打开页面简报',()=>openPage(w.page_id)));
   const d=details('属性、指标与原始依据',box);
   line(d,'维度与取值',w.dimension_value_ids.map(id=>{const v=valueById.get(id);return v.dimension+' · '+v.value}));
@@ -206,6 +271,12 @@ function renderGroup(box,g) {
     if(!urls.length)continue;
     const list=details(label+' · '+urls.length,box);
     for(const url of urls){const item=node('p');external(item,url);list.append(item);}
+  }
+  if(g.page_only_refs?.length){
+    const list=details('仅有整页流量的同行 URL · '+g.page_only_urls.length,box);
+    for(const url of g.page_only_urls)external(list,url);
+    line(list,'证据范围','该快照提供整页数据，尚缺该页可识别的逐词排名明细。');
+    for(const ref of g.page_only_refs)sourceRef(list,'rankings',ref);
   }
   if(g.page_id)box.append(action('打开承接页简报',()=>openPage(g.page_id)));
   box.append(action('展开 '+g.query_count+' 个成员',()=>openWords({plan:g.planning_id})));
@@ -272,6 +343,7 @@ function navigate(replace=false) {
   const h=new URLSearchParams({view:mode});
   if(mode==='opportunities'){h.set('status',opportunityFilter);if(opportunityId)h.set('item',opportunityId);if(byId('query').value)h.set('q',byId('query').value);}
   if(mode==='overview') {
+    if(workQueue)h.set('queue',workQueue);
     for(const {id} of workFilters){const value=byId(id+'-filter').value;if(value)h.set(id,value);}
     if(byId('priority').value)h.set('priority',byId('priority').value);
     if(byId('query').value)h.set('q',byId('query').value);
@@ -291,6 +363,7 @@ function restore() {
   reset(Object.hasOwn(modes,v)?v:'overview');
   if(mode==='opportunities'){opportunityFilter=Object.hasOwn(opportunityFilters,h.get('status'))?h.get('status'):'all';opportunityId=h.get('item')||'';byId('query').value=h.get('q')||'';}
   if(mode==='overview'){
+    workQueue=['confirm','build','review'].includes(h.get('queue'))?h.get('queue'):'';
     for(const {id} of workFilters)byId(id+'-filter').value=h.get(id)||'';
     byId('query').value=h.get('q')||'';byId('priority').value=h.get('priority')||'';
   }
@@ -400,7 +473,7 @@ function planningTable(box,items) {
     const name=node('div','','planned-page'), parent=pageById.get(p.parent_id);
     name.append(cellButton(pageName(p),()=>openPage(p.id)));
     if(p.url)name.append(node('small',new URL(p.url,location.href).pathname,'pathname'));
-    name.append(pageChoices.reviewNotice(p.id));
+    name.append(pageChoices.reviewNotice(p.id),pageChoices.inputs(p.id,moduleNames));
     const words=wordsByPage.get(p.id)||[];
     const facts=details('规划资料 · '+words.length+' 个词',name);
     facts.className='planning-facts';
@@ -497,9 +570,10 @@ function tableView(box,items) {
   if(mode==='overview'){planningTable(box,items);return;}
   if(mode==='inputs'){renderInputList(box,items);return;}
   if(mode==='terms'){
-    box.append(tableBox(['词或连续词组','不同查询数 DF','出现次数 TF','同口径词库','市场 / 语言'],items.map(t=>{
+    if(!data.term_metric_fields)box.append(node('p','本版保存了词频。生成新版分析后可以查看各词组的指标覆盖和关联取值。','muted'));
+    box.append(tableBox(['词或连续词组','不同查询数 DF','出现次数 TF','已知月搜索量','量覆盖','KD 覆盖','市场 / 语言'],items.map(t=>{
       const val=node('div',String(t.df),'num'),bar=node('span','','bar'),i=node('i');i.style.width=(100*t.df/t.denominator)+'%';bar.append(i);val.append(bar);
-      return [cellButton(t.term,()=>openWords({term:t})),val,t.tf,t.denominator,t.market+' / '+(t.language||'未知')];})));return;
+      return [cellButton(t.term,()=>openWords({term:t})),val,t.tf,metricValue(t.known_monthly_volume,t.volume_status),t.volume_coverage||'未提供',t.kd_coverage||'未提供',t.market+' / '+(t.language||'未知')];})));return;
   }
   if(mode==='intents'){
     box.append(tableBox(['采购任务','代表原句','不同查询数','主承接页','市场 / 语言'],items.map(g=>[
@@ -509,7 +583,7 @@ function tableView(box,items) {
   if(mode==='decisions' && !selectedWord){
     box.append(tableBox(['完整原词','意图 / 采购任务','目标页与角色','承接程度','月量 / KD','市场 / 语言'],items.map(w=>[
       cellButton(w.keyword,()=>openWords({word:w.keyword_id})),w.buyer_task,[pageName(pageById.get(w.page_id)),w.role?title(w.role):''].filter(Boolean).join(' · ')||'—',
-      chip(title(w.coverage)),(w.monthly_volume===''?'—':w.monthly_volume)+' / '+(w.kd===''?'—':w.kd),w.market+' / '+(w.language||'未知')])));return;
+      chip(title(w.coverage)),metricValue(w.monthly_volume,w.monthly_volume_state)+' / '+metricValue(w.kd,w.kd_state),w.market+' / '+(w.language||'未知')])));return;
   }
   if(mode==='sites'){
     for(const site of items){const boxSite=node('article');boxSite.append(node('h2',site.name));external(boxSite,site.start_url||'https://'+site.domain+'/',site.domain);
@@ -527,6 +601,7 @@ function hasPhrase(tokens,phrase) {
   return tokens.some((token,i)=>token===parts[0]&&parts.every((part,j)=>tokens[i+j]===part));
 }
 function matchesOverview(page,query) {
+  if(!pageChoices.matchesQueue(page.id,workQueue))return false;
   for(const {id,field} of workFilters) {
     const selected=byId(id+'-filter').value;
     if(!selected)continue;
@@ -544,12 +619,15 @@ function draw() {
     if(selected)b.parentElement.open=true;
   }
   byId('selection-summary').hidden=!['overview','pages'].includes(mode);pageChoices.summary();
+  for(const item of byId('selection-summary').querySelectorAll('[data-work-queue]'))
+    item.setAttribute('aria-pressed',String(mode==='overview' && item.dataset.workQueue===workQueue));
   byId('planning-count').hidden=mode!=='overview';
   for(const {id} of workFilters)byId(id+'-field').hidden=mode!=='overview';
   byId('view-filters').classList.toggle('overview-filters',mode==='overview');
   byId('work-filter-toggle').hidden=mode!=='overview';
   if(mode==='overview')syncFilterToggle();
   byId('view-title').textContent=modes[mode];byId('view-desc').textContent=captions[mode];
+  byId('view-desc').hidden=mode==='overview';
   byId('page-field').hidden=!scopeModes.has(mode);byId('term-field').hidden=mode!=='terms';
   byId('locale-field').hidden=!['terms','intents','values','coverage','decisions','groups','prices','urls'].includes(mode);
   byId('metrics').hidden=mode!=='pages';byId('pager').hidden=false;
@@ -557,6 +635,36 @@ function draw() {
   byId('query').placeholder=mode==='overview'?'输入页面名称、网址或分到本页的词':'搜索当前视图';
   const q=byId('query').value.trim().toLowerCase(),box=byId('results'),focus=byId('focus');box.replaceChildren();focus.replaceChildren();
   if(mode==='opportunities')opportunityTabs(focus);
+  if(['coverage','terms','decisions'].includes(mode)&&!selectedWord){
+    const [market,language]=locale?JSON.parse(locale):['',''];
+    snapshotPanel(focus,'',market,language);
+  }
+  if(selectedTerm){
+    const term=data.terms.find(t=>t.term===selectedTerm.term&&t.market===selectedTerm.market&&t.language===selectedTerm.language);
+    if(term&&term.volume_coverage){
+      const info=node('article');
+      info.append(node('h3',term.term));
+      line(info,'出现次数 / 不同查询 / 同口径词库',[term.tf,term.df,term.denominator].join(' / '));
+      metric(info,term);
+      for(const id of term.dimension_value_ids){
+        const v=valueById.get(id);
+        if(v)info.append(action(v.dimension+' · '+v.value,()=>openWords({value:id})));
+      }
+      focus.append(info);
+    }
+  }
+  if(mode==='coverage' && pageChoices.known()){
+    const scope=locale?JSON.parse(locale):null,counts=new Map();
+    for(const word of data.decisions){
+      if(scope && (word.market!==scope[0]||word.language!==scope[1]))continue;
+      const status=currentAssignment(word).label;
+      counts.set(status,(counts.get(status)||0)+1);
+    }
+    if(counts.size){
+      const panel=node('article');panel.append(node('h3','按用户已保存的选择'),tableBox(['需求去向','不同查询数'],[...counts]));
+      focus.append(panel);
+    }
+  }
   if(mode==='inputs'&&inputById.has(sourceId)){
     focus.append(action('返回全部原始资料',()=>{reset('inputs');navigate();}));
     const panel=node('article');box.append(panel);rawView(panel,inputById.get(sourceId));byId('pager').hidden=true;return;
@@ -618,7 +726,7 @@ Object.assign(labels,{keywords:'词库原表',rankings:'逐词排名',pages:'流
   home:'首页',category_overview:'分类总览',category:'选型目录',product:'产品详情',attachment:'附件详情',
   application_hub:'应用目录',application:'应用方案',capability:'能力与交付',company:'企业介绍',resource:'资料目录',
   utility:'采购支持',inquiry:'询价页',blog:'博客入口',blog_category:'博客分类',article:'文章选题',
-  missing:'未提供',select_basis:'待选指标口径',conflicting:'数值冲突',conflicting_pool:'共享估值有冲突',invalid:'数值无效',
+  missing:'未提供',select_basis:'待选指标口径',unavailable_basis:'当前口径未收到观察',conflicting:'数值冲突',conflicting_pool:'共享估值有冲突',invalid:'数值无效',
   competitors:'竞品名单',catalogue:'产品资料',simulation:'模拟数据',provider_export:'工具导出',user_provided:'用户资料',
   model_inference:'推断候选',historical_sample:'历史资料',browser_observation:'实访',partial:'拟部分承接',
   observed:'已实访',simulated:'模拟观察',blocked:'访问受阻',not_started:'尚未实访'});
@@ -644,6 +752,9 @@ byId('locale').addEventListener('change',e=>{locale=e.target.value;offset=0;navi
 byId('term-length').addEventListener('change',()=>{offset=0;draw()});
 for(const priority of new Set(data.overview.map(p=>p.priority).filter(Boolean)))byId('priority').append(new Option(priority,priority));
 for(const {id} of workFilters)byId(id+'-filter').addEventListener('change',()=>{offset=0;navigate(true);});
+for(const item of byId('selection-summary').querySelectorAll('[data-work-queue]'))item.addEventListener('click',()=>{
+  reset('overview');workQueue=item.dataset.workQueue;navigate();
+});
 function syncFilterToggle(){
   const toggle=byId('work-filter-toggle'),open=toggle.getAttribute('aria-expanded')==='true';
   const count=workFilters.filter(({id})=>byId(id+'-filter').value).length+Number(Boolean(byId('priority').value));
@@ -679,7 +790,7 @@ document.addEventListener('keydown',e=>{
   }
 });
 for(const [name,label] of Object.entries({'clean-keywords':'整理后原词库','words-and-phrases':'全量词频与词组','intent-groups':'整句意图组',
-  'pages':'页面规划','page-opportunities':'业务待核与拆并取舍','keyword-decisions':'逐词归属','commercial-planning':'商业页面拆并','demand-coverage':'覆盖统计','dimension-values':'属性与取值',
+  ...(data.metric_snapshots?{'metric-snapshots':'各口径指标与覆盖'}:{}),'pages':'页面规划','page-opportunities':'业务待核与拆并取舍','keyword-decisions':'逐词归属','commercial-planning':'商业页面拆并','demand-coverage':'覆盖统计','dimension-values':'属性与取值',
   'content-modules':'内容模块','received-rankings':'收到的排名','comparable-pages':'同类竞品依据','price-observations':'商品价格','input-files':'来源目录'})){
   const a=node('a',label);a.href=name+'.csv';a.download='';byId('files').append(a);
 }
@@ -689,7 +800,9 @@ function syncTaskPrompt(){
 }
 document.addEventListener('workbench-choice-update',()=>{
   syncTaskPrompt();
-  if(mode!=='overview'||!workFilters.some(({id})=>byId(id+'-filter').value))return;
+  if(mode==='coverage'||(mode==='decisions'&&selectedWord)){draw();return;}
+  if(mode!=='overview'||(!workQueue&&!workFilters.some(({id})=>byId(id+'-filter').value)))return;
+  if(byId('results').querySelector('.inline-form'))return;
   const q=byId('query').value.trim().toLowerCase(),matches=data.overview.filter(page=>matchesOverview(page,q));
   const visible=[...byId('results').querySelectorAll('tr[data-page-id]')];
   if(matches.length!==overviewMatches||visible.some((row,i)=>matches[offset+i]?.id!==row.dataset.pageId))draw();

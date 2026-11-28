@@ -9,6 +9,12 @@
 - 例如计划可指定 `"metric_basis":{"volume":{"provider":"Semrush","observed_at":"2026-10-01","evidence_class":"provider_export","unit":"searches/month","scope":"US database","metric_type":"monthly"}}`。字段值应与词库 build 清单的实际定义一致，未登记的 unit/scope/metric_type 用空值。KD 用 `difficulty` 单独选取。每个维度和具体值独立按成员求并集，展示已知月量、有量数/总数、KD 有值数及 <30、30–<60、60–100、未知四档词数。这些区间用于展示。
 - 工具若明确多个近似词共享一个月量，可把原表的共享估值编号映射至 build 的 `columns.volume_group`，仅在同一口径计一次；跨页面或属性的合计同样可能重叠。不同市场分别汇总。按查询数量、已知搜索量以及部分承接、待核和排除分别读覆盖统计。
 
+从已有工作台补表时，使用 `--update-from` 保留各市场、语言和指标上次实际采用的快照。可在计划中通过 `metric_basis_by_locale` 数组分别指定；每项有 `market`、`language` 和 `volume` 或 `difficulty` 的上述来源字段。具体市场的选项优先于全局设置。若首轮有多个可比快照而没有指定，保留「待选指标口径」。已经采用的口径在新资料中缺失时标记缺项。各版工作台的页面简报、词库分析和 `metric-snapshots.csv` 可对照每个日期的覆盖。真实观测为零时展示 0。
+
+`words-and-phrases.csv` 的单词及连续词组按标准分词统计不同查询、月量与覆盖、KD 分档、相交维度取值。点击词组查看成员，点击取值可展开完整业务维度。同一共享搜索量在同一聚合中计算一次。若提交自定义分词研究，`keyword_analysis.tokenizer` 可设为 `custom` 并填写 `tokenizer_description`；其 TF、DF 和成员必须能从同批 `tokenized_keywords` 重算。工作台标准词频仍使用来源原词及标准分词。
+
+商业规划行的 `page_only_urls` 与 `page_only_refs` 保留本市场、语言中已关联但该供应商快照没有可识别逐词明细的 Top Pages。用研究记录链接目标页或具体词来说明对应关系。URL 与原行可回查；整页流量独立于关键词月量。用于单页局部模块的跨页型观察在 `peer_reviews` 指定 `use: "module_reference"`、该页已启用的 `module_id` 与采用理由，可在模块简报读回。同类页依据应匹配采购任务和实际页型。
+
 ## 实页与价格
 
 排名来源清单的 `columns` 可以映射每行的 provider、competitor_id、domain、market、language 和 observed_at。单一来源继续用清单顶层的固定值。词库 build 也支持 market、language、provider 和 observed_at 按行映射。若同列在不同工具表示不同含义，按实际定义分别映射。

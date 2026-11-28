@@ -107,3 +107,51 @@ body[data-workbench=design]{--canvas:#f5f6f1;--ink:#162e2b;--accent:#1a6456;--li
   .page-choice button{min-height:37px;padding:5px 6px}
 }
 @media(max-width:359px){.execution-grid,.planning-list tbody tr{grid-template-columns:1fr}}
+
+/* Daily decisions sit above the page list; cumulative receipts are available on demand. */
+.selection-summary{display:flex;align-items:center;flex-wrap:wrap;gap:5px 12px;margin:12px 0;padding:8px;background:#fff}
+.queue-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;width:100%}
+.queue-tabs button{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:40px;padding:5px 12px;font:inherit;font-size:14px;font-weight:600;border:1px solid transparent;border-radius:5px;text-align:start;color:var(--review-ink);background:#f2f5f0}
+.queue-tabs button:hover{background:#e6efe7}
+.queue-tabs button[aria-pressed=true]{background:var(--review-green);color:white}
+.queue-tabs b{font-variant-numeric:tabular-nums;font-size:16px}
+.work-details{flex:1;margin:0;padding:0 5px;border:0}
+.work-details>summary{width:fit-content;padding:4px;color:var(--review-muted);font-size:12px;font-weight:550}
+.work-details[open]{order:3;flex-basis:100%}
+.work-details[open] .work-totals{border-top:1px solid var(--review-line);margin-top:4px}
+.selection-actions{margin-inline-start:auto;padding:2px 3px;border:0}
+.selection-actions button{background:white;color:var(--review-green);padding:4px 8px;border-color:var(--review-line)}
+#readonly-help{flex-basis:100%;padding:3px 5px}
+.overview-filters #work-filter-toggle{display:block}
+.overview-filters[data-expanded=false] label:not(:first-child){display:none}
+.overview-filters button#work-filter-toggle{min-height:39px}
+.choice-buttons[data-mode=confirm]::before{content:"待定";font-size:12px;margin-right:3px;color:var(--review-muted)}
+.choice-buttons button[data-decision=build]{background:#e8f3e9;color:#1a5942;border-color:#b6d0bf}
+.choice-select{max-width:100%;min-height:31px;padding:4px 6px;font:inherit;font-size:13px;border:1px solid var(--review-line);border-radius:5px;background:#fff;color:var(--review-muted);cursor:pointer}
+.choice-select[data-selected=build],.choice-select[data-selected=requested]{color:#1a5942;background:#e8f3e9}
+.choice-select[data-selected=skip]{background:#f4eeea;color:#704538}
+.alignment-label{display:block;width:fit-content;margin-top:4px;color:#365c53;font-size:12px;font-weight:600}
+.alignment-label[data-alignment=needs_review]{background:#fff0c8;padding:2px 6px;border-radius:4px;color:#744609}
+.planning-input{margin:6px 0;padding:6px 8px;background:var(--review-warm);border-inline-start:2px solid #d7b16c;color:#62451d;line-height:1.45;font-size:13px;overflow-wrap:anywhere}
+.planning-input>small{display:block;margin:3px 0;white-space:pre-line;color:#554e3d}
+.planning-input>.linkbtn{display:inline-block;margin-left:5px;font-size:12px;text-decoration:underline;text-underline-offset:2px}
+.planning-input .inline-form{display:grid;gap:8px;margin:7px 0 0}
+.inline-form label{display:grid;gap:3px;color:var(--review-ink);font-size:12px;font-weight:600}
+.inline-form select,.inline-form textarea{box-sizing:border-box;width:100%;min-width:0;max-width:100%;padding:6px;border:1px solid var(--review-line);border-radius:5px;background:white;color:var(--review-ink);font:inherit;font-size:13px}
+.inline-form textarea{resize:vertical}
+.inline-form-actions{display:flex;flex-wrap:wrap;gap:6px}
+.inline-form button{padding:5px 9px;font-size:13px}
+.inline-form .primary{color:white;background:var(--review-green);border-color:var(--review-green)}
+.inline-form .inline-result:empty{display:none}
+.planning-input [hidden],.alignment-label[hidden]{display:none}
+.planning-input button:focus-visible,.choice-select:focus-visible{outline:3px solid #287c70;outline-offset:2px}
+@media(max-width:880px){.queue-tabs button{padding:5px 8px;font-size:13px}}
+@media(max-width:740px){
+  .queue-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .queue-tabs button{min-height:36px}
+  .work-details{flex:0 1 auto}
+  .selection-summary{gap:4px 7px}
+  .selection-actions{gap:4px 7px}
+  .choice-select,.inline-form button{min-height:37px}
+  .overview-filters{margin-bottom:9px}
+}

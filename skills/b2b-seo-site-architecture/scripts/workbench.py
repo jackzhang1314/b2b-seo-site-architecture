@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 from urllib.request import urlopen
 
-from page_confirmation import FILENAME, DecisionConflict, change_page, encode, normalize_handoff, read_handoff
+from page_confirmation import FILENAME, DecisionConflict, change_page, contextual_handoff, encode, read_handoff
 from plan_records import Row, obj, records, text
 from register_project import atomic_write, project_lock
 from revisions import read_revisions
@@ -34,11 +34,19 @@ def page_list(context: Row) -> bytes:
         name = str(page.get("name_zh") or page["name"])
         progress = obj(page["progress"])
         seo = "可开始" if page["seo_eligible"] else "等建页确认" if page["seo_decision"] == "requested" else "暂不安排"
-        cells = (name, text(page, "url"), labels[text(page, "decision")],
-                 states[text(obj(progress["build"]), "status")], seo, states[text(obj(progress["onpage"]), "status")])
+        alignment = {"aligned": "本版已核对", "needs_review": "本版待复核", "not_reviewed": "本版暂无核对记录"}
+        disposition = obj(page["demand_resolution"])
+        action = {"pending": "待确定去向", "defer": "本轮暂缓", "out_of_scope": "业务不做", "merge": "并入章节"}
+        demand = " ".join(str(value) for value in (action[str(disposition["action"])], disposition["target_page_id"],
+                          disposition["target_module_id"], disposition["reason"]) if value)
+        cells = (name, text(page, "url"), labels[text(page, "decision")], states[text(obj(progress["build"]), "status")],
+                 seo, states[text(obj(progress["onpage"]), "status")], alignment[str(page["onpage_alignment"])],
+                 demand if page["decision"] == "skip" and page.get("assigned_keyword_ids") else "",
+                 str(page.get("business_answer") or page.get("business_question") or ""))
         rows.append("<tr>" + "".join("<td>" + escape(value) + "</td>" for value in cells) + "</tr>")
     return ("<table><caption>用户已保存的逐页选择</caption><thead><tr><th>页面</th><th>规划网址</th>"
-            "<th>本次选择</th><th>建站进度</th><th>SEO 排期</th><th>SEO 进度</th></tr></thead><tbody>" +
+            "<th>本次选择</th><th>建站进度</th><th>SEO 排期</th><th>SEO 进度</th><th>本版核对</th>"
+            "<th>需求去向</th><th>企业资料</th></tr></thead><tbody>" +
             "".join(rows) + "</tbody></table>").encode()
 
 
@@ -132,7 +140,7 @@ class ReviewRequest(BaseHTTPRequestHandler):
                         self.send_header("Vary", "Accept")
                         self.end_headers()
                         return
-                    context = {**normalize_handoff(obj(json.load(stream))), "registration": role,
+                    context = {**contextual_handoff(folder, obj(json.load(stream))), "registration": role,
                                "workbench_url": self.server.url(folder)}
                 if as_json:
                     self.send_data(encode(context), "application/json; charset=utf-8", editable=True, etag=etag)
@@ -169,7 +177,7 @@ class ReviewRequest(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "-1"))
-            if length < 1 or length > 8192:
+            if length < 1 or length > 32768:
                 self.fail(413, "Invalid decision size")
                 return
             path, folder, role = self.server.locate(self.path)

@@ -2,7 +2,7 @@
 
 **把行业词库、竞争对手页面和企业资料，变成可以交给设计师或 AI 的网站规划。**
 
-适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。版本 **0.9.0**。
+适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。版本 **0.10.0**。
 
 它帮助你确定：网站建哪些页面、产品类目怎么分、应用方案怎么归类、类目页放哪些筛选器、产品详情需要填写哪些参数，以及哪些页面可以共用模板。
 
@@ -10,19 +10,23 @@
 
 打开 Codex 交付的网址，每页占一行。你可以决定这页要不要建、要不要开始做 SEO，也可以看到页面是否已建、优化稿是否已经发布。Builder 和 On-page 在实际工作完成后回写时间、摘要和证据。点击页面名可以查看对应的词、竞品网址和内容依据。
 
-例如，2 吨挖掘机系列页可选「要建」并安排 SEO，3 吨系列页可选「不建」，电动系列可留待供货核实。后续 Codex 从同一网站项目直接读取这些决定。需要审阅某个草案时，也可复制该版工作台网址。
+例如，3 吨挖掘机仍在售，但本轮不建独立页。选「不建」后，可把该页的采购词并入小型挖掘机总览的选型章节，也可记录本轮暂缓或业务不做。电动系列供货待定时，在该行直接填写企业答复。2 吨系列已发布后又新增采购词时，工作台同时展示上次发布及本版待复核状态。后续 Codex 从同一网站项目读取决定，复制工作台网址还能指定某个方案。
 
 重开时，已安装 Skill 的 Mac 可以双击成果目录里的 **打开可编辑工作台.command**。也可运行 `python3 <本Skill目录>/scripts/workbench.py --workbench <成果目录>`。本机服务沿用原地址与已保存的选择。换电脑继续维护时一起移交整个建站项目，包括根 AGENTS.md、隐藏的 .seo-architecture 目录、各版工作台和执行回执。双击 `index.html` 可打开只读预览。
 
-自动接续和回写已经在 On-page SEO v2.12.0 与 WordPress Builder Harness 2.39.26-r21 上联测。项目里工作时可以直接对 Codex 说「把我勾选要建的页面存成 WordPress 草稿」或「优化我安排了 SEO 的页面」。
+项目里工作时可以直接对 Codex 说「把我勾选要建的页面存成 WordPress 草稿」或「优化我安排了 SEO 的页面」。以前只保存逐页选择的项目，可以原址升级工作台编辑器。新资料可另生成草案，保留已采用版本。
 
-![挖掘机模拟项目的商业页面规划与逐页确认](docs/workbench-example.png)
+| 挖掘机项目示例 | 保存的建页决定 | 首页提示 |
+| --- | --- | --- |
+| 2 吨系列 | 要建，安排 SEO | 上版已有发布回执，本版新增经销商采购词待复核 |
+| 3 吨系列 | 不建独立页 | 选择将已分配的词并入总览页的选型章节 |
+| 电动系列 | 待定 | 填写向目标市场供货的型号和条件 |
 
 “输入与竞品”集中展示原始 CSV、客户补充的产品工作簿和业务材料、竞品站点、Top Pages、各次排名与商品报价。整页流量和商品价格各有口径，原件保留可下载。工作台支持离线查阅与分页，交付时发送整个成果目录或其 ZIP。On-page 按页面编号读取确认的词组和模块，继续写 Title、H1、Subtitle、H2 和正文。[逐页规划与数据契约](skills/b2b-seo-site-architecture/references/search-planning.md)
 
 在建站项目中，交付后打开网站根目录的 **AGENTS.md**。里面直接链接当前市场的工作台、网站页面规划、清洗后的行业词库与逐词归属、竞品排名与 Top Pages、用户提交的原件。换一个会话也能沿这些链接继续优化指定页面。[登记现有工作台的方法](skills/b2b-seo-site-architecture/references/output-contract.md)
 
-当前版本的安装包和校验清单可从 GitHub 下载。[下载 v0.9.0 ZIP](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.9.0/b2b-seo-site-architecture-0.9.0.zip) · [下载校验清单](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.9.0/b2b-seo-site-architecture-0.9.0.manifest.json)
+当前版本的安装包和文件清单可从 GitHub 下载。[下载 v0.10.0 ZIP](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.10.0/b2b-seo-site-architecture-0.10.0.zip) · [下载文件清单](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.10.0/b2b-seo-site-architecture-0.10.0.manifest.json)
 
 新生成的工作台先作为草案。选定后，可告诉 Codex「采用这个目录里的架构方案」，或对该目录执行 `architecture.py --project-root <网站> --register-existing <工作台> --adopt`。未指定网址时，On-page 和 WordPress Builder 使用当前采用版。首次只有一份草案且用户已选择页面时，可以直接继续已选工作。发给 Codex 具体工作台网址时，使用该版选择。以后有新增词库或同行数据，把新增原表发给该网站项目的 Codex，让它基于原版更新工作台。审阅草案的单页时，从工作台复制该页的 On-page 指令。完整项目中可看版本变化，从当前页切换到另一版的相同位置。
 
@@ -32,7 +36,7 @@
 
 ```text
 请使用 $skill-installer 安装这个 Skill：
-https://github.com/jackzhang1314/b2b-seo-site-architecture/tree/v0.9.0/skills/b2b-seo-site-architecture
+https://github.com/jackzhang1314/b2b-seo-site-architecture/tree/v0.10.0/skills/b2b-seo-site-architecture
 
 请检查安装是否成功，并告诉我怎样调用。
 这一步先完成安装，不开始网站规划或建站。

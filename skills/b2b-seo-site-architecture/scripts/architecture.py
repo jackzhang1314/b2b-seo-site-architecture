@@ -21,6 +21,8 @@ from plan_records import (
     optional_records as optional_records, records as records, require as require, strings as strings, text as text,
 )
 from search_plan import SearchPlan, workbench_template
+from workbench_data import verify_frequency
+from demand_metrics import previous_metric_bases
 from page_confirmation import create_handoff
 from register_project import register
 from seo_project import project_for
@@ -29,7 +31,7 @@ from workbench_update import UpdateBase
 from workbench_upgrade import upgrade_workbench
 
 VERSION = "0.5.0"
-TOOL_VERSION = "0.9.0"
+TOOL_VERSION = "0.10.0"
 BILINGUAL_VERSIONS = {"0.4.0", VERSION}
 DESIGN_VERSIONS = {"0.3.0", *BILINGUAL_VERSIONS}
 SUPPORTED_VERSIONS = {"0.1.0", "0.2.0", *DESIGN_VERSIONS}
@@ -503,27 +505,8 @@ def validate(plan: Row, keywords: dict[str, dict[str, str]]) -> Row:
         analysis = obj(plan["keyword_analysis"])
         text(analysis, "method")
         tokenized = records(analysis, "tokenized_keywords")
-        token_ids = [text(row, "keyword_id") for row in tokenized]
-        require(len(token_ids) == len(set(token_ids)) and set(token_ids) == keywords.keys(),
-                "Tokenized keyword coverage differs from input")
-        for row in tokenized:
-            strings(row, "tokens", required=True, unique=False)
-            require(text(row, "keyword") == keywords[text(row, "keyword_id")]["keyword_original"],
-                    "Tokenized original keyword differs")
+        verify_frequency(analysis, keywords)
         terms = records(analysis, "terms")
-        for row in terms:
-            text(row, "term")
-            market, language = text(row, "market"), text(row, "language", empty=True)
-            for key in ("tf", "df", "denominator_keywords", "ngram"):
-                require(isinstance(row.get(key), int) and not isinstance(row.get(key), bool)
-                        and int(str(row[key])) > 0, f"Invalid word-frequency {key}")
-            ids = strings(row, "keyword_ids", required=True)
-            require(set(ids) <= keywords.keys(), "Unknown word-frequency keyword reference")
-            require(int(str(row["tf"])) >= int(str(row["df"])) == len(ids)
-                    and int(str(row["df"])) <= int(str(row["denominator_keywords"])),
-                    "Word-frequency TF/DF coverage mismatch")
-            require(all((keywords[k]["market"], keywords[k]["language"]) == (market, language) for k in ids),
-                    "Word-frequency mixes source contexts")
         candidates = index(records(analysis, "category_candidates"))
         for candidate in candidates.values():
             for key in ("dimension", "decision", "reason"):
@@ -1034,7 +1017,8 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
     decision_rows = [{**d, "keyword": keywords[text(d, "keyword_id")]["keyword_original"],
                       "market": keywords[text(d, "keyword_id")]["market"],
                       "language": keywords[text(d, "keyword_id")]["language"]} for d in decisions]
-    search_plan = SearchPlan(plan, page_rows, decision_rows, keywords, delivery)
+    search_plan = SearchPlan(plan, page_rows, decision_rows, keywords, delivery,
+                             previous_metric_bases(base.folder) if base else {})
     validation["search_planning"] = search_plan.summary
     validation["workbench_analysis"] = {"source": "complete_keyword_input", "ngram": [1, 2, 3], "keywords": len(keywords),
                                         "group_assignments": len(decision_rows), "plan_ranking_rows": len(ranking_rows),
@@ -1075,7 +1059,11 @@ def compile_architecture(plan_path: Path, keywords_path: Path, out: Path, analys
             analysis = obj(plan["keyword_analysis"])
             for filename, key in (("term-frequency", "terms"), ("tokenized-keywords", "tokenized_keywords"),
                                   ("category-candidates", "category_candidates")):
-                write_csv(stage / f"{filename}.csv", records(analysis, key))
+                reports = records(analysis, key)
+                if key == "terms" and analysis.get("tokenizer") == "custom":
+                    reports = [{**row, "tokenizer": "custom", "tokenizer_description": analysis["tokenizer_description"]}
+                               for row in reports]
+                write_csv(stage / f"{filename}.csv", reports)
         (stage / "design.html").write_text(template_html.replace("__ARCHITECTURE_DATA__", encoded), encoding="utf-8")
         if plan.get("schema_version") in DESIGN_VERSIONS:
             module_rows: list[Row] = []
@@ -1167,7 +1155,7 @@ def main() -> int:
     mode.add_argument("--prepare-update", type=Path, metavar="PREVIOUS_WORKBENCH",
                       help="Recover archived source mappings and combine them with newly received exports")
     mode.add_argument("--upgrade-workbench", type=Path, metavar="WORKBENCH",
-                      help="Upgrade a 0.8.0 editor at its existing URL, preserving the plan, decisions and original HTML")
+                      help="Upgrade an existing 0.8 or 0.9 editor in place, preserving the plan, user choices and original HTML")
     parser.add_argument("--update-from", type=Path, metavar="PREVIOUS_WORKBENCH",
                         help="Carry verified page choices and work history into this newly compiled revision")
     parser.add_argument("--keyword-sources", type=Path, help="Additional mapped keyword sources for --prepare-update")
