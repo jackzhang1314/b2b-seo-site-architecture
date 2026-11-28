@@ -31,7 +31,7 @@ from workbench_update import UpdateBase
 from workbench_upgrade import upgrade_workbench
 
 VERSION = "0.5.0"
-TOOL_VERSION = "0.10.0"
+TOOL_VERSION = "0.10.1"
 BILINGUAL_VERSIONS = {"0.4.0", VERSION}
 DESIGN_VERSIONS = {"0.3.0", *BILINGUAL_VERSIONS}
 SUPPORTED_VERSIONS = {"0.1.0", "0.2.0", *DESIGN_VERSIONS}

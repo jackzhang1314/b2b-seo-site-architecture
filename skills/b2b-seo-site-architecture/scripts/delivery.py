@@ -61,7 +61,7 @@ class AnalysisDelivery:
         else:
             lines += [f"已附带 {len(self.runs)} 个运行目录、{len(self.files)} 个原始分析文件。", ""]
             if self.rankings_attached:
-                lines += ["- [完整URL汇总](competitor-url-summary.csv)：含只有整页流量、没有逐词明细的URL。",
+                lines += ["- [完整URL汇总](competitor-url-summary.csv)：含仅出现在 Top Pages 报告中的 URL。",
                           "- [整页流量原记录](page-traffic-observations.csv)",
                           "- [规划内Top30与实访关联](ranked-url-summary.csv)：口径独立，不冒充整页流量。", ""]
             lines += [f"- [{relative}]({relative})" for _, relative, _ in self.files]

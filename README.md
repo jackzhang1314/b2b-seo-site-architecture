@@ -2,7 +2,7 @@
 
 **把行业词库、竞争对手页面和企业资料，变成可以交给设计师或 AI 的网站规划。**
 
-适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。版本 **0.10.0**。
+适合准备建设或改版英文外贸 B2B 网站的工厂、外贸企业和服务团队。版本 **0.10.1**。
 
 它帮助你确定：网站建哪些页面、产品类目怎么分、应用方案怎么归类、类目页放哪些筛选器、产品详情需要填写哪些参数，以及哪些页面可以共用模板。
 
@@ -26,7 +26,7 @@
 
 在建站项目中，交付后打开网站根目录的 **AGENTS.md**。里面直接链接当前市场的工作台、网站页面规划、清洗后的行业词库与逐词归属、竞品排名与 Top Pages、用户提交的原件。换一个会话也能沿这些链接继续优化指定页面。[登记现有工作台的方法](skills/b2b-seo-site-architecture/references/output-contract.md)
 
-当前版本的安装包和文件清单可从 GitHub 下载。[下载 v0.10.0 ZIP](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.10.0/b2b-seo-site-architecture-0.10.0.zip) · [下载文件清单](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.10.0/b2b-seo-site-architecture-0.10.0.manifest.json)
+当前版本的安装包和文件清单可从 GitHub 下载。[下载 v0.10.1 ZIP](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.10.1/b2b-seo-site-architecture-0.10.1.zip) · [下载文件清单](https://github.com/jackzhang1314/b2b-seo-site-architecture/releases/download/v0.10.1/b2b-seo-site-architecture-0.10.1.manifest.json)
 
 新生成的工作台先作为草案。选定后，可告诉 Codex「采用这个目录里的架构方案」，或对该目录执行 `architecture.py --project-root <网站> --register-existing <工作台> --adopt`。未指定网址时，On-page 和 WordPress Builder 使用当前采用版。首次只有一份草案且用户已选择页面时，可以直接继续已选工作。发给 Codex 具体工作台网址时，使用该版选择。以后有新增词库或同行数据，把新增原表发给该网站项目的 Codex，让它基于原版更新工作台。审阅草案的单页时，从工作台复制该页的 On-page 指令。完整项目中可看版本变化，从当前页切换到另一版的相同位置。
 
@@ -36,7 +36,7 @@
 
 ```text
 请使用 $skill-installer 安装这个 Skill：
-https://github.com/jackzhang1314/b2b-seo-site-architecture/tree/v0.10.0/skills/b2b-seo-site-architecture
+https://github.com/jackzhang1314/b2b-seo-site-architecture/tree/v0.10.1/skills/b2b-seo-site-architecture
 
 请检查安装是否成功，并告诉我怎样调用。
 这一步先完成安装，不开始网站规划或建站。
@@ -54,30 +54,36 @@ https://github.com/jackzhang1314/b2b-seo-site-architecture/tree/v0.10.0/skills/b
 
 Skill 不包含 Ahrefs、Semrush 账号或付费数据。你已有的工具导出文件可以直接提供。
 
-## 我需要提供什么
+## 第一次先登记资料位置
 
-| 资料 | 可以直接提供的内容 |
+打开自己的建站项目，复制下面这段话。还没下载数据时也可以做。
+
+```text
+请在当前建站项目为网站架构准备四个资料目录。已有位置就沿用，缺的在「网站架构资料」下创建。
+01 产品种子词拓词表，02 竞品排名关键词，03 竞品 Top Pages，04 同行网站名单。
+把四项用途和实际路径写入项目根 AGENTS.md 的「### 网站架构资料数据」，放在工作台自动更新的区段外。
+请把四个位置列给我，这一步完成目录登记即可。
+```
+
+| 资料位置 | 放什么 |
 | --- | --- |
-| 企业与产品资料 | 实际产品、型号/材料、制造或供货范围、目标国家、英文站语言、图片与已有证书资料 |
-| 产品核心词或拓词表 | 几个产品名或别名即可开始。已有的 Semrush、Ahrefs 导出或 AI 候选词表可以直接交 |
-| B2B 独立站竞品名单 | 已知同行域名或官网网址。名单缺失时，Codex 按采购商的搜法找站，结合行业词的流量分布核对同行 |
-| 每站前 30 名的排名词 | 导出自然排名位置 1–30 的所有可得关键词、名次与具体页面 URL，已有更广的排名原表也可交 |
-| 每站的 Top Pages | 单独导出页面 URL 和整页估算自然流量。已有报价时保留币种、单位、配置及贸易条件 |
-| 现有网站（改版时） | 网站地址、已有页面及可得的表现数据 |
+| 01 产品种子词拓词表 | 从产品名或别名拓展的原始查询表，保留已有搜索量、KD 等列 |
+| 02 竞品排名关键词 | 各同行的自然搜索关键词、排名位置和排到的具体页面 URL |
+| 03 竞品 Top Pages | 按页面 URL 汇总的整页原始报告，保留工具给出的整页流量、排名词数等列 |
+| 04 同行网站名单 | 已知的可比 B2B 独立站域名或官网网址 |
 
-把公司介绍、产品目录和这些原件放进**同一个客户文件夹**，把文件夹交给 Codex 即可。Codex 会盘点已有文件、清洗和关联原表，再生成客户工作台与架构设计简报。
+四份资料可以分开存放。若目录或文件已存在，直接告诉 Codex 位置。项目内优先记相对项目根的路径，移动后只更新对应条目。公司介绍和产品目录可以另记；改版时也可提供现有站点地址。下次打开同一项目，Codex 就能沿这个小节找原表。[项目小节示例与缺表处理](skills/b2b-seo-site-architecture/references/data-collection-guide.md)
 
 **如果你只有工厂资料**，可以直接说“我们做定制玻璃酒瓶，目标是美国。请从产品目录提取核心词，帮我找 B2B 独立站同行，再告诉我在 Ahrefs 要下载哪两张竞品表、放在哪里。”你可以自行导出，也可以授权 Codex 通过 Computer Use 在你使用的网页版操作。[四份资料的收集方法](skills/b2b-seo-site-architecture/references/data-collection-guide.md)
 
-## 安装后，怎样开始
+## 放好原表，再生成工作台
 
-把资料放进当前项目或作为附件提供，再复制：
+在同一建站项目复制下列提示。只有附件、四条路径或旧工作台已归档的原件时，也可以直接使用。
 
 ```text
-使用 $b2b-seo-site-architecture。
-
-我提供企业与产品资料、行业词库、竞品名单、Top Pages，以及竞品排名关键词和对应 URL 表。
-我们做英文外贸 B2B 网站。
+使用 $b2b-seo-site-architecture，读取项目根 AGENTS.md 的「网站架构资料数据」。
+请打开原表，按同行核对排名词和 Top Pages。缺哪家的哪张表，请告诉我报告入口、需要的字段和保存位置。
+资料齐备就结合公司介绍和产品目录，为我们的英文外贸 B2B 网站生成可编辑工作台并发我链接。
 
 请先用脚本统计词频、词组、产品属性和竞品页面承接的需求，再结合语义分析与浏览器实访，规划网站架构。
 
@@ -89,6 +95,8 @@ Skill 不包含 Ahrefs、Semrush 账号或付费数据。你已有的工具导�
 ```
 
 只做一条产品线、排除博客或已有部分研究时，直接补充说明即可，不必重跑全部流程。
+
+课堂演示可以用排名位置 1–30、Top Pages 的 Keywords > 1 快速走通流程。正式项目可以分几天扩充同行名单，保留各站、各市场能取得的较完整导出和实际覆盖范围。做单页对标时选约 5 家看页面，行业词库仍接收全部相关同行的数据。
 
 ## 最后会拿到什么
 

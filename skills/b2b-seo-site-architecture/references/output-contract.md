@@ -144,7 +144,7 @@ v0.5.x 已交付的完整工作台可直接登记，无需重新跑大词库。�
 python3 SKILL_DIR/scripts/architecture.py --project-root "/客户建站项目" --register-existing "/客户建站项目/docs/seo/本次成果"
 ```
 
-根 AGENTS.md 只维护 `<!-- b2b-seo:architecture:start -->` 与 `<!-- b2b-seo:architecture:end -->` 之间的内容。每个站点、市场、语言及资料性质可有多份草案与历史版，并可选一份当前采用版。索引中的表名和原件路径相对工作台目录，AGENTS.md 的链接相对项目根目录。按实收清单归档客户材料，外部原件随包保留副本；未附入的原件在索引里标注 catalog_only。项目原件留在客户项目内。
+工作台登记和进度同步只维护根 `AGENTS.md` 中 `<!-- b2b-seo:architecture:start -->` 与 `<!-- b2b-seo:architecture:end -->` 之间的内容。原始资料位置另写在这对标记之外的 `### 网站架构资料数据`，用户移动原表时更新该小节。每个站点、市场、语言及资料性质可有多份草案与历史版，并可选一份当前采用版。索引中的表名和归档原件相对于工作台目录。项目内的原始资料位置相对于项目根。收到的外部原件随成果保留副本，未附入的原件在索引里标注 catalog_only。
 
 
 ### 用户选择、研究记录与方案版本

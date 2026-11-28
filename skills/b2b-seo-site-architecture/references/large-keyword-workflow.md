@@ -64,6 +64,8 @@ python3 SKILL_DIR/scripts/keyword_evidence.py rankings --keywords runs/library-0
 
 上面用`.example`明确表示示例；真实导出改成真实域名、来源和日期，证据可为provider_export/user_provided/historical_sample。`rankings`与`pages`各自独立保存Traffic，不能复制整页流量到每个关键词。来源缺必要上下文时先登记待核，不为让脚本运行编造日期/语言。单文件多个市场/竞品时由Codex按原列拆分并保留行映射。
 
+已确认是 Top Pages 整页报告，但工具未给流量列时，`pages` 的 `columns` 只需映射 `url`。整页流量留空，原有 Keywords 等字段随原件和原始行保留。先核对报表粒度，逐词排名明细单独按 `rankings` 接收。
+
 输出保留全部收到的排名位置，额外计算Top30/Top10数量，不截掉31名以后或博客记录。收到全量有流量页面时全部登记；输入只导出1–30就只代表这个范围，不叫全市场全量。即使Top Pages中的某URL没有对应关键词明细，也保留它和“词明细缺失”的事实。
 
 - `ranking-observations.csv`：逐条排名关系与原排名/流量；重复行也保留追溯。

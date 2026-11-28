@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from cluster import TOKEN, keywords
 from library import check_source_id, normalize, number, obj, output_dir, read_table, snapshot_table, stable_id, text_map, write_json, write_table
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 CONTEXT = ("provider", "competitor_id", "market", "language", "observed_at", "url")
 GROUP_CONTEXT = (*CONTEXT, "evidence_class")
 RANK_FIELDS = ["source_ref", "source_id", *CONTEXT, "evidence_class", "keyword_id", "keyword_original",
@@ -127,11 +127,14 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
                         f"Source {sid}: invalid evidence_class {evidence!r}; allowed: "
                         "provider_export, user_provided, historical_sample, simulation")
                 columns = text_map(source.get("columns"))
-                required_columns = {"rankings": {"keyword", "position", "url"}, "pages": {"url", "page_estimated_traffic"},
+                required_columns = {"rankings": {"keyword", "position", "url"}, "pages": {"url"},
                                     "prices": {"url", "price"}}[kind]
-                data_columns = required_columns | ({"estimated_traffic"} if kind == "rankings" else set(PRICE_COLUMNS))
-                require(required_columns <= columns.keys() <= data_columns | ROW_CONTEXT,
-                        "Invalid evidence column mapping; separate page and keyword traffic")
+                optional_columns = {"rankings": {"estimated_traffic"}, "pages": {"page_estimated_traffic", *PRICE_COLUMNS},
+                                    "prices": set(PRICE_COLUMNS)}[kind]
+                missing = required_columns - columns.keys()
+                require(not missing, f"{sid}: {kind} report needs these fields: {', '.join(sorted(missing))}")
+                require(columns.keys() <= required_columns | optional_columns | ROW_CONTEXT,
+                        f"{sid}: invalid {kind} column mapping; separate page and keyword traffic")
                 require(not (columns.keys() & set(PRICE_COLUMNS)) or "price" in columns, "Map the original offer price")
                 if "price" in columns:
                     field = normalize(columns["price"]).replace("_", " ")
@@ -152,7 +155,9 @@ def rankings(keywords_path: Path, manifest_path: Path, out: Path) -> None:
                     if "__export_footer__" in raw:
                         issues.append({"source_ref": ref, "issue": "export_footer", "detail": raw["__export_footer__"]})
                         continue
-                    require(set(columns.values()) <= raw.keys(), f"Missing mapped columns: {sid}")
+                    missing_headers = set(columns.values()) - raw.keys()
+                    if missing_headers:
+                        raise ValueError(f"{sid} ({path.name}): missing source columns: {', '.join(sorted(missing_headers))}")
                     context = {k: raw[columns[k]].strip() if k in columns else v for k, v in defaults.items()}
                     domain = context.pop("domain").lower()
                     context["market"], context["language"] = context["market"].upper(), context["language"].lower()

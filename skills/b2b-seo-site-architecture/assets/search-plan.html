@@ -273,7 +273,7 @@ function renderGroup(box,g) {
     for(const url of urls){const item=node('p');external(item,url);list.append(item);}
   }
   if(g.page_only_refs?.length){
-    const list=details('仅有整页流量的同行 URL · '+g.page_only_urls.length,box);
+    const list=details('仅有 Top Pages 记录的同行 URL · '+g.page_only_urls.length,box);
     for(const url of g.page_only_urls)external(list,url);
     line(list,'证据范围','该快照提供整页数据，尚缺该页可识别的逐词排名明细。');
     for(const ref of g.page_only_refs)sourceRef(list,'rankings',ref);
